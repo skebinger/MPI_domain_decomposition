@@ -6,15 +6,15 @@ submodule(MOD_MPI_decomposition) SMOD_info
     implicit none
 contains
 
-
-    module subroutine print_decomposition_summary(comm)
+    module subroutine print_decomposition_summary(info,comm)
         !! Prints the domain decomposition summary for all MPI ranks.
         !!
         !! Gathers the local index ranges from all ranks and prints a formatted
         !! table on rank 0 showing the (i,j) bounds for each rank's block.
+        class(decomp_info) :: info !! Object containing the decomposition info
         integer, intent(in) :: comm !! MPI communicator (usually MPI_COMM_WORLD)
 
-
+        ! local variables
         integer :: rank, size, ierr
         integer, allocatable :: all_info(:,:)
         integer :: i
@@ -25,11 +25,12 @@ contains
 
         allocate(all_info(4, size))
 
-        send_buf(1) = ilow
-        send_buf(2) = ihigh
-        send_buf(3) = jlow
-        send_buf(4) = jhigh
+        send_buf(1) = info%ilow
+        send_buf(2) = info%ihigh
+        send_buf(3) = info%jlow
+        send_buf(4) = info%jhigh
 
+        ! Collect the decomposition info on the rank 0 (master rank)
         call MPI_Gather(send_buf, 4, MPI_INTEGER, all_info, 4, MPI_INTEGER, 0, comm, ierr)
 
         if (rank == 0) then
@@ -47,10 +48,12 @@ contains
         deallocate(all_info)
     end subroutine print_decomposition_summary
 
-    module subroutine print_cartesian_rank_layout()
+    module subroutine print_cartesian_rank_layout(info)
         !! Prints a visual representation of the rank layout in the form of a chessboard.
         use mpi
-        implicit none
+        class(decomp_info), intent(in) :: info !! Object containing the decomposition info
+
+        ! local variables
         integer :: rank, ierr, size
         integer :: coords(2)
         integer :: i, j, idx
@@ -60,10 +63,10 @@ contains
         integer, allocatable :: all_coords(:,:)
         integer :: found_rank
 
-        call MPI_Comm_rank(comm_cart, rank, ierr)
-        call MPI_Comm_size(comm_cart, size, ierr)
+        call MPI_Comm_rank(info%comm_cart, rank, ierr)
+        call MPI_Comm_size(info%comm_cart, size, ierr)
 
-        call MPI_Cart_coords(comm_cart, rank, 2, coords, ierr)
+        call MPI_Cart_coords(info%comm_cart, rank, 2, coords, ierr)
 
         local_info = [rank, coords(1), coords(2)]
 
@@ -72,11 +75,12 @@ contains
         end if
 
         if (rank == 0) then
-            call MPI_Gather(local_info, 3, MPI_INTEGER, recvbuf, 3, MPI_INTEGER, 0, comm_cart, ierr)
+            call MPI_Gather(local_info, 3, MPI_INTEGER, recvbuf, 3, MPI_INTEGER, 0, info%comm_cart, ierr)
         else
-            call MPI_Gather(local_info, 3, MPI_INTEGER, MPI_BOTTOM, 3, MPI_INTEGER, 0, comm_cart, ierr)
+            call MPI_Gather(local_info, 3, MPI_INTEGER, MPI_BOTTOM, 3, MPI_INTEGER, 0, info%comm_cart, ierr)
         end if
 
+        ! only print on rank 0 (master rank)
         if (rank == 0) then
             allocate(all_ranks(size))
             allocate(all_coords(2,size))
@@ -88,21 +92,21 @@ contains
                 all_coords(2,i) = recvbuf(idx+3)
             end do
 
-            print *, "MPI Cartesian grid layout (dims = ", dims(1), ",", dims(2), "):"
+            print *, "MPI Cartesian grid layout (dims = ", info%dims(1), ",", info%dims(2), "):"
             print *, "Coordinates (x,y), y=0 at bottom"
 
             ! Print top border of the grid
             write(*,'(A)', advance='no') "  +"
-            do i = 1, dims(1)
+            do i = 1, info%dims(1)
                 write(*,'(A)', advance='no') "---+"
             end do
             print *
 
             ! Loop over rows from top (y=dims(2)-1) to bottom (y=0)
-            do j = dims(2)-1, 0, -1
+            do j = info%dims(2)-1, 0, -1
                 ! Print rank line
                 write(*,'(A)', advance='no') trim(adjustl(itoa(j)))// " |"
-                do i = 0, dims(1)-1
+                do i = 0, info%dims(1)-1
                     found_rank = -1
                     do idx = 1, size
                         if (all_coords(1,idx) == i .and. all_coords(2,idx) == j) then
@@ -120,7 +124,7 @@ contains
 
                 ! Print separator line
                 write(*,'(A)', advance='no') "  +"
-                do i = 1, dims(1)
+                do i = 1, info%dims(1)
                     write(*,'(A)', advance='no') "---+"
                 end do
                 print *
@@ -128,7 +132,7 @@ contains
 
             ! Print x-axis labels below the grid
             write(*,'(A)', advance='no') "    "
-            do i = 0, dims(1)-1
+            do i = 0, info%dims(1)-1
                 write(*,'(A,I2,A)', advance='no') " ", i, "  "
             end do
             print *, ""

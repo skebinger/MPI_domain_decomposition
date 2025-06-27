@@ -3,17 +3,16 @@ submodule(MOD_MPI_decomposition) SMOD_MPI_halo_exchange
     implicit none
 contains
 
-    module subroutine exchange_halos(dat2D, m_var, m_xi, m_eta, num_ghost, left, right, bottom, top, comm)
+    module subroutine exchange_halos(info, dat2D, m_var, num_ghost, left, right, bottom, top, comm)
         !! Exchanges halo layers for a multi-variable 2D structured field.
         !!
         !! Performs halo exchange on a field `dat2D(m_var, i, j)` with ghost cells,
         !! communicating ghost layers with direct MPI neighbors: left, right, bottom, and top.
-
+        class(decomp_info), intent(in) :: info
+        !! Object containing the decomposition info
         double precision, allocatable :: dat2D(:,:,:)
         !! Multi-variable 2D array: dat2D(m_var, i, j)
         integer, intent(in) :: m_var        !! Number of variables per grid point
-        integer, intent(in) :: m_xi         !! Number of *interior* i-cells (excluding ghosts)
-        integer, intent(in) :: m_eta        !! Number of *interior* j-cells (excluding ghosts)
         integer, intent(in) :: num_ghost    !! Number of ghost cells on each side
         integer, intent(in) :: left         !! MPI rank of left neighbor (or MPI_PROC_NULL)
         integer, intent(in) :: right        !! MPI rank of right neighbor (or MPI_PROC_NULL)
@@ -39,11 +38,11 @@ contains
 
         integer :: offset_i_right_recv, offset_i_left_recv, offset_i_send_left, offset_i_send_right
 
+        logical :: buffered_eta_exchange = .false. !! temporary variable to block the experimental section of the j exchange
 
-        logical :: buffered_eta_exchange = .false.
         call MPI_Comm_rank(MPI_COMM_WORLD,rank,ierr)
 
-        call get_local_block_bounds(ilo,ihi,jlo,jhi)
+        call info%get_local_block_bounds(ilo,ihi,jlo,jhi)
 
         !---------------------------------------------------------------
         ! Create derived datatypes for non-contiguous face transfer

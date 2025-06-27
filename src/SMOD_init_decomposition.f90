@@ -1,10 +1,9 @@
 submodule(MOD_MPI_decomposition) SMOD_init_decomposition
-
+    !! Deals with the initialization of the domain decomposition
     implicit none
-
 contains
 
-    module subroutine initialize_decomposition(m_xi, m_eta, comm)
+    module subroutine initialize_decomposition(info, m_xi, m_eta, comm)
         !! Initializes the domain decomposition for a 2D grid using MPI.
         !!
         !! The decomposition is performed only by the master rank (rank 0), which computes
@@ -30,10 +29,10 @@ contains
         !! Output (module private variables set):
         !! - ilow, ihigh: Local i-direction bounds (inclusive).
         !! - jlow, jhigh: Local j-direction bounds (inclusive).
-
-        integer, intent(in) :: m_xi !! Total number of cells in the i-direction (xi-axis)
-        integer, intent(in) :: m_eta !! Total number of cells in the j-direction (eta-axis)
-        integer, intent(in) :: comm !! MPI communicator (normally 'MPI_COMM_WORLD')
+        class(decomp_info), intent(out) :: info !! Object containing the decomposition info
+        integer, intent(in) :: m_xi             !! Total number of cells in the i-direction (xi-axis)
+        integer, intent(in) :: m_eta            !! Total number of cells in the j-direction (eta-axis)
+        integer, intent(in) :: comm             !! MPI communicator (normally 'MPI_COMM_WORLD')
 
 
         ! Internal variables
@@ -54,13 +53,13 @@ contains
 
         if (rank == 0) then
             ! Initialize dims to zero for MPI_Dims_create
-            dims = 0
+            info%dims = 0
 
             ! Create a 2D processor grid decomposition
             ! let MPI decide the layout
-            call MPI_Dims_create(size, 2, dims, ierr)
-            i_procs = dims(1)
-            j_procs = dims(2)
+            call MPI_Dims_create(size, 2, info%dims, ierr)
+            i_procs = info%dims(1)
+            j_procs = info%dims(2)
 
             ! Allocate arrays to store decomposition info for all ranks
             allocate(ilows(size), ihighs(size), jlows(size), jhighs(size))
@@ -86,7 +85,7 @@ contains
         end if
 
         ! communicate the dimensions of the grid to all ranks
-        dims_send=dims
+        dims_send=info%dims
         if(rank==0)then
             ! Rank 0 sends the grid dimensions to all other ranks
             do i=1,size-1
@@ -95,7 +94,7 @@ contains
         else
             ! Other ranks recieve the dimensions
             call MPI_Recv(dims_rec, 2, MPI_INTEGER, 0, 0, comm, MPI_STATUS_IGNORE, ierr)
-            dims=dims_rec
+            info%dims=dims_rec
         end if
 
         ! Each rank prepares to receive or send its decomposition info
@@ -120,10 +119,10 @@ contains
         end if
 
         ! Assign local decomposition bounds from received buffer
-        ilow = recvbuf(1)
-        ihigh = recvbuf(2)
-        jlow = recvbuf(3)
-        jhigh = recvbuf(4)
+        info%ilow = recvbuf(1)
+        info%ihigh = recvbuf(2)
+        info%jlow = recvbuf(3)
+        info%jhigh = recvbuf(4)
 
         ! Cleanup allocated arrays on rank 0
         if (rank == 0) then
@@ -134,25 +133,26 @@ contains
         ! Write decomposition to disk
         open(unit=1,file=adjustl('output/domain_rank_' // trim(rank_str)//'.dat'),status='unknown',form='formatted')
         write(1,*) rank
-        write(1,*) ilow
-        write(1,*) ihigh
-        write(1,*) jlow
-        write(1,*) jhigh
+        write(1,*) info%ilow
+        write(1,*) info%ihigh
+        write(1,*) info%jlow
+        write(1,*) info%jhigh
         close(unit=1)
 
     end subroutine initialize_decomposition
 
-    module subroutine setup_cartesian_topology(comm_in)
+    module subroutine setup_cartesian_topology(info,comm_in)
         !! Create a 2D Cartesian communicator and get neighbor ranks.
         !!
         !! The number of processes in each dimension is taken from previous
         !! calculation executed in initialize_decomposition. Sets the global
         !! module variable 'comm_cart'.
+        class(decomp_info) :: info !! Object containing the decomposition info
         integer, intent(in) :: comm_in !! Input communicator (usually MPI_COMM_WORLD)
 
         integer :: ierr, rank, size
-        integer ::  periods(2)
         integer :: coords(2)
+        logical :: periods(2)
 
         call MPI_Comm_rank(comm_in, rank, ierr)
         call MPI_Comm_size(comm_in, size, ierr)
@@ -160,16 +160,16 @@ contains
         periods = (/ .false., .false. /)  ! Non-periodic boundaries for now
 
         ! Create Cartesian communicator
-        call MPI_Cart_create(comm_in, 2, dims, periods, .true., comm_cart, ierr)
+        call MPI_Cart_create(comm_in, 2, info%dims, periods, .true., info%comm_cart, ierr)
 
         ! Get coordinates of this rank
-        call MPI_Cart_coords(comm_cart, rank, 2, coords, ierr)
+        call MPI_Cart_coords(info%comm_cart, rank, 2, coords, ierr)
 
         ! Find left/right neighbors (dimension 1: x)
-        call MPI_Cart_shift(comm_cart, 0, 1, nbr_left, nbr_right, ierr)
+        call MPI_Cart_shift(info%comm_cart, 0, 1, info%nbr_left, info%nbr_right, ierr)
 
         ! Find bottom/top neighbors (dimension 2: y)
-        call MPI_Cart_shift(comm_cart, 1, 1, nbr_bottom, nbr_top, ierr)
+        call MPI_Cart_shift(info%comm_cart, 1, 1, info%nbr_bottom, info%nbr_top, ierr)
 
     end subroutine setup_cartesian_topology
 
