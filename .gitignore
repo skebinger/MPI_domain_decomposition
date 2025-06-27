@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# Automatically created Directories
+/doc
+/mod
