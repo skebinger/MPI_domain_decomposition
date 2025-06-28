@@ -7,14 +7,16 @@ set(MPIFLAVOR "intelmpi" CACHE STRING "MPI flavor: intelmpi or openmpi")
 if(MPIFLAVOR STREQUAL "intelmpi")
     # Intel MPI uses mpiifx
     set(CMAKE_Fortran_COMPILER "mpiifx" CACHE STRING "Intel MPI Fortran compiler" FORCE)
+    set(CMAKE_C_COMPILER       "mpiicx" CACHE STRING "Intel MPI C compiler" FORCE) 
 elseif(MPIFLAVOR STREQUAL "openmpi")
     # Open MPI uses mpif90 or mpifort
     set(CMAKE_Fortran_COMPILER "mpifort" CACHE STRING "Open MPI Fortran compiler" FORCE)
+    set(CMAKE_C_COMPILER       "mpicc" CACHE STRING "Open MPI C compiler" FORCE)
 else()
     message(FATAL_ERROR "Unsupported MPIFLAVOR: ${MPIFLAVOR}. Supported: intelmpi, openmpi")
 endif()
 
-project(mpidcl LANGUAGES Fortran)
+project(mpidcl LANGUAGES Fortran C)
 
 # Include MPI flavor specific flags and defines
 include(config/${MPIFLAVOR}.cmake)

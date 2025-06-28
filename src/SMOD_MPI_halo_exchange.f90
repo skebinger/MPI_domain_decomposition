@@ -30,15 +30,14 @@ contains
         integer :: maxreq
 
         ! Buffer arrays for send and receive — dimensioned for m_var * num_j_points
-        double precision, allocatable :: sendbuf(:), recvbuf(:)
+        double precision, allocatable :: sendbuf_left(:), recvbuf_right(:)
+        double precision, allocatable :: sendbuf_right(:), recvbuf_left(:)
         integer :: nj, count,var
 
         ! local index range of rank
         integer :: ilo,ihi,jlo,jhi
 
         integer :: offset_i_right_recv, offset_i_left_recv, offset_i_send_left, offset_i_send_right
-
-        logical :: buffered_eta_exchange = .false. !! temporary variable to block the experimental section of the j exchange
 
         call MPI_Comm_rank(MPI_COMM_WORLD,rank,ierr)
 
@@ -67,119 +66,56 @@ contains
 
         ! === LEFT / RIGHT exchange ===
         do layer = 1, num_ghost
+            nj = jhi - jlo + 1
+            count = m_var * nj
 
-            if(buffered_eta_exchange)then
-                nj = jhi - jlo + 1
-                count = m_var * nj
+            allocate(sendbuf_left(count))
+            allocate(recvbuf_right(count))
+            allocate(sendbuf_right(count))
+            allocate(recvbuf_left(count))
 
-                allocate(sendbuf(count))
-                allocate(recvbuf(count))
+            ! --- SEND LEFT boundary: i = ilo + layer - 1 ---
+            do var = 1, m_var
+                do j = jlo, jhi
+                    sendbuf_left((var-1)*nj + (j - jlo + 1)) = dat2D(var, ilo + layer - 1, j)
+                end do
+            end do
 
-                ! --- SEND LEFT boundary: i = ilo + layer - 1 ---
+            call MPI_Sendrecv(sendbuf_left, count, MPI_DOUBLE_PRECISION, left, 100 + layer, &
+                recvbuf_right, count, MPI_DOUBLE_PRECISION, right, 100 + layer, &
+                comm, MPI_STATUS_IGNORE, ierr)
+
+            if (right /= MPI_PROC_NULL) then
                 do var = 1, m_var
                     do j = jlo, jhi
-                        sendbuf((var-1)*nj + (j - jlo + 1)) = dat2D(var, ilo + layer - 1, j)
+                        dat2D(var, ihi + layer, j) = recvbuf_right((var-1)*nj + (j - jlo + 1))
                     end do
                 end do
-
-                call MPI_Sendrecv(sendbuf, count, MPI_DOUBLE_PRECISION, left, 100 + layer, &
-                    recvbuf, count, MPI_DOUBLE_PRECISION, right, 100 + layer, &
-                    comm, MPI_STATUS_IGNORE, ierr)
-
-                if (right /= MPI_PROC_NULL) then
-                    do var = 1, m_var
-                        do j = jlo, jhi
-                            dat2D(var, ihi + layer, j) = recvbuf((var-1)*nj + (j - jlo + 1))
-                        end do
-                    end do
-                end if
-
-                ! --- SEND RIGHT boundary: i = ihi - layer + 1 ---
-                do var = 1, m_var
-                    do j = jlo, jhi
-                        sendbuf((var-1)*nj + (j - jlo + 1)) = dat2D(var, ihi - layer + 1, j)
-                    end do
-                end do
-
-                call MPI_Sendrecv(sendbuf, count, MPI_DOUBLE_PRECISION, right, 200 + layer, &
-                    recvbuf, count, MPI_DOUBLE_PRECISION, left, 200 + layer, &
-                    comm, MPI_STATUS_IGNORE, ierr)
-
-                if (left /= MPI_PROC_NULL) then
-                    do var = 1, m_var
-                        do j = jlo, jhi
-                            dat2D(var, ilo - layer, j) = recvbuf((var-1)*nj + (j - jlo + 1))
-                        end do
-                    end do
-                end if
-
-                deallocate(sendbuf)
-                deallocate(recvbuf)
-            else
-                !EXPERIMENTAL NOT YET WORKING
-                !=== WARNING: Dangerous code segment! Manually prescribes array bounds for MPI array exchange.
-                !Huge potential to fuck up and send/recieve out of bounds!! ====!
-
-                !MORE EFFICIENT VERSION: workaround to use a contiguous segment of data for MPI send and recieve
-                !achieved through a custom mpi type, cutting data into subarrays
-                !short explanation (UPDATE!!!!!):
-                !dat2D = pointer to start of data array in memory
-                !1 = counter of how many element of type recv_type or send_type are communicated (here one, because that data is "wrapped" into the type)
-                !right/left = neighbour rank to right and left
-                !100+layer = unique tag
-                !rest not important for here
-
-                error stop "Currently experimental version of j-ghost cell exchange. Not working"
-
-                ! Calculate zero-based offsets relative to dat2D's first element (1-num_ghost in Fortran corresponds to 0 in MPI)
-                offset_i_right_recv = (ihi + layer) - (1 - num_ghost)
-                offset_i_left_recv  = (ilo - layer) - (1 - num_ghost)
-                offset_i_send_left  = (ilo + layer - 1) - (1 - num_ghost)
-                offset_i_send_right = (ihi - layer + 1) - (1 - num_ghost)
-
-                !ilo_g = lbound(dat2D, 2)
-                !jlo_g = lbound(dat2D, 3)
-
-                ! --- Setup receive datatype for column at right ghost (i = ihi + layer) ---
-                starts = [0, offset_i_right_recv, jlo - (1 - num_ghost)]
-                call MPI_Type_create_subarray(3, sizes, subsizes, starts, MPI_ORDER_FORTRAN, MPI_DOUBLE_PRECISION, recv_type, ierr)
-                call MPI_Type_commit(recv_type, ierr)
-
-                call MPI_Irecv(dat2D, 1, recv_type, right, 100 + layer, comm, reqs(nreq + 1), ierr)
-                nreq = nreq + 1
-
-                call MPI_Type_free(recv_type, ierr)
-
-                ! --- Setup receive datatype for column at left ghost (i = ilo - layer) ---
-                starts = [0, offset_i_left_recv, jlo - (1 - num_ghost)]
-                call MPI_Type_create_subarray(3, sizes, subsizes, starts, MPI_ORDER_FORTRAN, MPI_DOUBLE_PRECISION, recv_type, ierr)
-                call MPI_Type_commit(recv_type, ierr)
-
-                call MPI_Irecv(dat2D, 1, recv_type, left, 200 + layer, comm, reqs(nreq + 1), ierr)
-                nreq = nreq + 1
-
-                call MPI_Type_free(recv_type, ierr)
-
-                ! --- Setup send datatype for column at left boundary (i = ilo + layer - 1) ---
-                starts = [0, offset_i_send_left, jlo - (1 - num_ghost)]
-                call MPI_Type_create_subarray(3, sizes, subsizes, starts, MPI_ORDER_FORTRAN, MPI_DOUBLE_PRECISION, send_type, ierr)
-                call MPI_Type_commit(send_type, ierr)
-
-                call MPI_Isend(dat2D, 1, send_type, left, 100 + layer, comm, reqs(nreq + 1), ierr)
-                nreq = nreq + 1
-
-                call MPI_Type_free(send_type, ierr)
-
-                ! --- Setup send datatype for column at right boundary (i = ihi - layer + 1) ---
-                starts = [0, offset_i_send_right, jlo - (1 - num_ghost)]
-                call MPI_Type_create_subarray(3, sizes, subsizes, starts, MPI_ORDER_FORTRAN, MPI_DOUBLE_PRECISION, send_type, ierr)
-                call MPI_Type_commit(send_type, ierr)
-
-                call MPI_Isend(dat2D, 1, send_type, right, 200 + layer, comm, reqs(nreq + 1), ierr)
-                nreq = nreq + 1
-
-                call MPI_Type_free(send_type, ierr)
             end if
+
+            ! --- SEND RIGHT boundary: i = ihi - layer + 1 ---
+            do var = 1, m_var
+                do j = jlo, jhi
+                    sendbuf_right((var-1)*nj + (j - jlo + 1)) = dat2D(var, ihi - layer + 1, j)
+                end do
+            end do
+
+            call MPI_Sendrecv(sendbuf_right, count, MPI_DOUBLE_PRECISION, right, 200 + layer, &
+                recvbuf_left, count, MPI_DOUBLE_PRECISION, left, 200 + layer, &
+                comm, MPI_STATUS_IGNORE, ierr)
+
+            if (left /= MPI_PROC_NULL) then
+                do var = 1, m_var
+                    do j = jlo, jhi
+                        dat2D(var, ilo - layer, j) = recvbuf_left((var-1)*nj + (j - jlo + 1))
+                    end do
+                end do
+            end if
+
+            deallocate(sendbuf_left)
+            deallocate(recvbuf_right)
+            deallocate(sendbuf_right)
+            deallocate(recvbuf_left)
         end do
 
         ! === BOTTOM / TOP exchange ===

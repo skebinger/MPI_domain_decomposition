@@ -1,0 +1,13 @@
+!> test/mytests.pf
+module mytests
+    implicit none
+contains
+
+    @test
+    subroutine test_simple_assert()
+        use PFUNIT
+        use MOD_MPI_decomposition
+        call assertEqual(3,add(1,2))
+    end subroutine test_simple_assert
+
+end module mytests

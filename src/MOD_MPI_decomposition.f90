@@ -26,6 +26,7 @@ module MOD_MPI_decomposition
     public :: get_cartesian_comm
     public :: get_neighbouring_ranks
     public :: exchange_halos
+    public :: print_cartesian_rank_layout
 
     type :: decomp_info
         integer :: ilow, ihigh                                 !! Local i-direction bounds
@@ -144,5 +145,15 @@ module MOD_MPI_decomposition
     end interface
 
 contains
+
+    !!added just for testing the pFUnit framework.
+    !! TB removed once other tests are implemented
+    function add(a,b)result(c)
+        integer, intent(in) :: a,b
+        integer :: c
+        
+        c=a+b
+        
+    end function
 
 end module MOD_MPI_decomposition
