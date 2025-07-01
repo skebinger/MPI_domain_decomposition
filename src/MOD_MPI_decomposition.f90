@@ -19,16 +19,18 @@ module MOD_MPI_decomposition
     use mpi
     implicit none
 
-    public :: initialize_decomposition
-    public :: get_local_block_bounds
-    public :: print_decomposition_summary
-    public :: setup_cartesian_topology
-    public :: get_cartesian_comm
-    public :: get_neighbouring_ranks
-    public :: exchange_halos
-    public :: print_cartesian_rank_layout
+    !public :: initialize_decomposition
+    !public :: get_local_block_bounds
+    !public :: print_decomposition_summary
+    !public :: setup_cartesian_topology
+    !public :: get_cartesian_comm
+    !public :: get_neighbouring_ranks
+    !public :: exchange_halos_2D
+    !public :: print_cartesian_rank_layout
 
     type :: decomp_info
+        !! Contains the domain decomposition information, such as
+        !! indexing bounds and rank neighbours.
         integer :: ilow, ihigh                                 !! Local i-direction bounds
         integer :: jlow, jhigh                                 !! Local j-direction bounds
 
@@ -38,7 +40,7 @@ module MOD_MPI_decomposition
         integer :: dims(2)                                     !! Processor grid in i and j directions
     contains
         procedure :: initialize_decomposition
-        procedure :: exchange_halos
+        procedure :: exchange_halos_2D
         procedure :: setup_cartesian_topology
         procedure :: print_decomposition_summary
         procedure :: print_cartesian_rank_layout
@@ -48,6 +50,9 @@ module MOD_MPI_decomposition
     end type
 
 
+    !=======================================================================================================!
+    ! setup and initialization
+    !=======================================================================================================!
     interface
         module subroutine initialize_decomposition(info, m_xi, m_eta, comm)
             !! Initializes the domain decomposition for a 2D grid using MPI.
@@ -81,25 +86,7 @@ module MOD_MPI_decomposition
             integer, intent(in) :: comm             !! MPI communicator (normally 'MPI_COMM_WORLD')
         end subroutine
 
-        module subroutine exchange_halos(info, dat2D, m_var, num_ghost, left, right, bottom, top, comm)
-            !! Exchanges halo layers for a multi-variable 2D structured field.
-            !!
-            !! Performs halo exchange on a field `dat2D(m_var, i, j)` with ghost cells,
-            !! communicating ghost layers with direct MPI neighbors: left, right, bottom, and top.
-            class(decomp_info), intent(in) :: info
-            !! Object containing the decomposition info
-            double precision, allocatable :: dat2D(:,:,:)
-            !! Multi-variable 2D array: dat2D(m_var, i, j)
-            integer, intent(in) :: m_var        !! Number of variables per grid point
-            integer, intent(in) :: num_ghost    !! Number of ghost cells on each side
-            integer, intent(in) :: left         !! MPI rank of left neighbor (or MPI_PROC_NULL)
-            integer, intent(in) :: right        !! MPI rank of right neighbor (or MPI_PROC_NULL)
-            integer, intent(in) :: bottom       !! MPI rank of bottom neighbor (or MPI_PROC_NULL)
-            integer, intent(in) :: top          !! MPI rank of top neighbor (or MPI_PROC_NULL)
-            integer, intent(in) :: comm         !! MPI communicator
-        end subroutine
-
-        module subroutine setup_cartesian_topology(info,comm_in)
+        module subroutine setup_cartesian_topology(info, comm_in)
             !! Create a 2D Cartesian communicator and get neighbor ranks.
             !!
             !! The number of processes in each dimension is taken from previous
@@ -108,8 +95,13 @@ module MOD_MPI_decomposition
             class(decomp_info) :: info      !! Object containing the decomposition info
             integer, intent(in) :: comm_in  !! Input communicator (usually MPI_COMM_WORLD)
         end subroutine
+    end interface
 
-        module subroutine print_decomposition_summary(info,comm)
+    !=======================================================================================================!
+    ! info-output subroutines
+    !=======================================================================================================!
+    interface
+        module subroutine print_decomposition_summary(info, comm)
             !! Prints the domain decomposition summary for all MPI ranks.
             !!
             !! Gathers the local index ranges from all ranks and prints a formatted
@@ -123,8 +115,13 @@ module MOD_MPI_decomposition
             use mpi
             class(decomp_info), intent(in) :: info
         end subroutine
+    end interface
 
-        module subroutine get_local_block_bounds(info,ilo, ihi, jlo, jhi)
+    !=======================================================================================================!
+    ! type-bound getters
+    !=======================================================================================================!
+    interface
+        module subroutine get_local_block_bounds(info, ilo, ihi, jlo, jhi)
             !! Returns the local 2D index bounds for this rank.
             !!
             !! These bounds define the owned rectangular region in the global mesh for
@@ -144,6 +141,139 @@ module MOD_MPI_decomposition
         end subroutine
     end interface
 
+    !=======================================================================================================!
+    ! halo exchange
+    !=======================================================================================================!
+    interface
+        module subroutine exchange_halos_2D(info, dat2D, m_var, num_ghost, left, right, bottom, top, comm)
+            !! Exchanges halo layers for a multi-variable 2D structured field.
+            !!
+            !! Performs halo exchange on a field `dat2D(m_var, i, j)` with ghost cells,
+            !! communicating ghost layers with direct MPI neighbors: left, right, bottom, and top.
+            class(decomp_info), intent(in) :: info
+            !! Object containing the decomposition info
+            double precision, allocatable :: dat2D(:,:,:)
+            !! Multi-variable 2D array: dat2D(m_var, i, j)
+            integer, intent(in) :: m_var        !! Number of variables per grid point
+            integer, intent(in) :: num_ghost    !! Number of ghost cells on each side
+            integer, intent(in) :: left         !! MPI rank of left neighbor (or MPI_PROC_NULL)
+            integer, intent(in) :: right        !! MPI rank of right neighbor (or MPI_PROC_NULL)
+            integer, intent(in) :: bottom       !! MPI rank of bottom neighbor (or MPI_PROC_NULL)
+            integer, intent(in) :: top          !! MPI rank of top neighbor (or MPI_PROC_NULL)
+            integer, intent(in) :: comm         !! MPI communicator
+        end subroutine
+
+        module subroutine send_left_right(info, dat2D, m_var, isend, irecv, rank_origin, rank_target, tag, comm)
+            type(decomp_info) :: info
+            double precision, allocatable, intent(inout) :: dat2D(:,:,:)
+            integer, intent(in) :: m_var
+            integer, intent(in) :: isend,irecv
+            integer, intent(in) :: rank_origin,rank_target
+            integer, intent(in) :: tag
+            integer, intent(in) :: comm
+        end subroutine
+
+        module subroutine send_top_bottom(info, dat2D, m_var, jsend, jrecv, rank_origin, rank_target, tag, comm)
+            type(decomp_info) :: info
+            double precision, allocatable, intent(inout) :: dat2D(:,:,:)
+            integer, intent(in) :: m_var
+            integer, intent(in) :: jsend,jrecv
+            integer, intent(in) :: rank_origin,rank_target
+            integer, intent(in) :: tag
+            integer, intent(in) :: comm
+        end subroutine
+    end interface
+
+    !=======================================================================================================!
+    ! rank communication subroutines
+    !=======================================================================================================!
+    interface
+        module subroutine send_1D_array(sendbuf,recvbuf,origin,target,tag,MPI_SEND_TYPE,comm)
+            double precision, allocatable ,intent(in) :: sendbuf(:)
+            double precision, allocatable, intent(inout) :: recvbuf(:)
+            integer, intent(in) :: origin, target
+            integer, intent(in) :: tag
+            integer, intent(in) :: MPI_SEND_TYPE
+            integer, intent(in) :: comm
+        end subroutine
+    end interface
+
+    !=======================================================================================================!
+    ! helper subroutines
+    !=======================================================================================================!
+    abstract interface
+        !! Abstract interface for the 2d-packing subroutines
+        subroutine pack_2d_slice(dat2D, buf, isend, m_var, jlo, jhi, comm)
+            !! Compiles a 1D array into which all the data from 'dat2D(1:mvar,isend,jlo:jhi)' is packed.
+            !!
+            !! 'dat2D' is flattened into a 1D contiguous array.
+            double precision, allocatable, intent(in) :: dat2D(:,:,:) !! Multi-variable 2D array: dat2D(m_var, i, j)
+            double precision, allocatable, intent(inout) :: buf(:) !! Buffer (flattened) 1D array for the mpi send transmission
+            integer, intent(in) :: isend !! Slice index of the sending rank
+            integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
+            integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
+            integer, intent(in) :: comm !! MPI Communicator
+        end subroutine
+    end interface
+
+    interface
+        module subroutine allocate_buffers(sendbuf, recvbuf, idxlo, idxhi, m_var)
+            !! Allocates the send and recieve buffer arrays.
+            !!
+            !! Takes the two bounds 'idxlo' and 'idxhi' as lower and upper bounds of one slice of data.
+            !! Then 'm_var' is the number of slices (= number of field variables).
+            double precision, allocatable, intent(inout) :: sendbuf(:), recvbuf(:) !! buffer arrays
+            integer, intent(in) :: idxlo, idxhi !! Bounds of array slice
+            integer, intent(in) :: m_var !! Number of field variables
+        end subroutine
+
+        module subroutine pack_2d_jslice(dat2D, buf, isend, m_var, jlo, jhi, comm)
+            !! Compiles a 1D array into which all the data from 'dat2D(1:mvar,isend,jlo:jhi)' is packed.
+            !!
+            !! 'dat2D' is flattened into a 1D contiguous array.
+            double precision, allocatable, intent(in) :: dat2D(:,:,:) !! Multi-variable 2D array: dat2D(m_var, i, j)
+            double precision, allocatable, intent(inout) :: buf(:) !! Buffer (flattened) 1D array for the mpi send transmission
+            integer, intent(in) :: isend !! Slice index of the sending rank
+            integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
+            integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
+            integer, intent(in) :: comm !! MPI Communicator
+        end subroutine
+
+        module subroutine pack_2d_islice(dat2D, buf, jsend, m_var, ilo, ihi, comm)
+            !! Compiles a 1D array into which all the data from 'dat2D(1:mvar,ilo:ihi,jsend)' is packed.
+            !!
+            !! 'dat2D' is flattened into a 1D contiguous array.
+            double precision, allocatable, intent(in) :: dat2D(:,:,:) !! Multi-variable 2D array: dat2D(m_var, i, j)
+            double precision, allocatable, intent(inout) :: buf(:) !! Buffer (flattened) 1D array for the mpi send transmission
+            integer, intent(in) :: jsend !! Slice index of the sending rank
+            integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
+            integer, intent(in) :: ilo, ihi !! Rank-specific index boundaries of the i-slice
+            integer, intent(in) :: comm !! MPI Communicator
+        end subroutine
+
+        module subroutine unpack_2d_jslice(dat2D, recvbuf, irecv, m_var, jlo, jhi, comm)
+            !! Reverses the flattening of 'dat2D' into a 1D array and unpacks the 1D array
+            !! 'recbuf' back into 'dat2D'.
+            double precision, allocatable, intent(inout) :: dat2D(:,:,:) !! Multi-variable 2D array: dat2D(m_var, i, j)
+            double precision, allocatable, intent(in) :: recvbuf(:) !! Flattened slice data
+            integer, intent(in) :: irecv !! Slice index in recieving rank
+            integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
+            integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
+            integer, intent(in) :: comm !! MPI Communicator
+        end subroutine
+
+        module subroutine unpack_2d_islice(dat2D, recvbuf, jrecv, m_var, ilo, ihi, comm)
+            !! Reverses the flattening of 'dat2D' into a 1D array and unpacks the 1D array
+            !! 'recbuf' back into 'dat2D'.
+            double precision, allocatable, intent(inout) :: dat2D(:,:,:) !! Multi-variable 2D array: dat2D(m_var, i, j)
+            double precision, allocatable, intent(in) :: recvbuf(:) !! Flattened slice data
+            integer, intent(in) :: jrecv !! Slice index in recieving rank
+            integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
+            integer, intent(in) :: ilo, ihi !! Rank-specific index boundaries of the i-slice
+            integer, intent(in) :: comm !! MPI Communicator
+        end subroutine
+    end interface
+
 contains
 
     !!added just for testing the pFUnit framework.
@@ -151,9 +281,9 @@ contains
     function add(a,b)result(c)
         integer, intent(in) :: a,b
         integer :: c
-        
+
         c=a+b
-        
+
     end function
 
 end module MOD_MPI_decomposition

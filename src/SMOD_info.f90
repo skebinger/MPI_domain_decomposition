@@ -6,7 +6,7 @@ submodule(MOD_MPI_decomposition) SMOD_info
     implicit none
 contains
 
-    module subroutine print_decomposition_summary(info,comm)
+    module subroutine print_decomposition_summary(info, comm)
         !! Prints the domain decomposition summary for all MPI ranks.
         !!
         !! Gathers the local index ranges from all ranks and prints a formatted

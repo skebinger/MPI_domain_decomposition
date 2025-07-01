@@ -3,7 +3,7 @@ submodule(MOD_MPI_decomposition) SMOD_MPI_halo_exchange
     implicit none
 contains
 
-    module subroutine exchange_halos(info, dat2D, m_var, num_ghost, left, right, bottom, top, comm)
+    module subroutine exchange_halos_2D(info, dat2D, m_var, num_ghost, left, right, bottom, top, comm)
         !! Exchanges halo layers for a multi-variable 2D structured field.
         !!
         !! Performs halo exchange on a field `dat2D(m_var, i, j)` with ghost cells,
@@ -25,9 +25,6 @@ contains
         integer :: recv_type, send_type
         integer :: sizes(3), subsizes(3), starts(3)
         integer :: nreq
-        integer, allocatable :: reqs(:)
-        integer :: stat(MPI_STATUS_SIZE)
-        integer :: maxreq
 
         ! Buffer arrays for send and receive — dimensioned for m_var * num_j_points
         double precision, allocatable :: sendbuf_left(:), recvbuf_right(:)
@@ -43,104 +40,97 @@ contains
 
         call info%get_local_block_bounds(ilo,ihi,jlo,jhi)
 
-        !---------------------------------------------------------------
-        ! Create derived datatypes for non-contiguous face transfer
-        !---------------------------------------------------------------
-        ! Overall size of the full array (with ghosts)
-        sizes     = [m_var, (1+abs(ihi-ilo)) + 2*num_ghost, (1+abs(jhi-jlo)) + 2*num_ghost]
-
-        ! Size of the subarray to send/recv: (m_var, 1, m_eta)
-        subsizes  = [m_var, 1, (1+abs(jhi-jlo))]
-
-        ! These will be set per call — but to define the type we assume j=0 (placeholder)
-        starts    = [0, 0, 0]  ! MPI uses 0-based indexing, unlike Fortran
-
-        ! Maximum of 8 requests per ghost layer
-        maxreq = 8 * num_ghost
-        allocate(reqs(maxreq))
-        nreq = 0
-
         !print *, left,right,top,bottom,rank
         call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-        !stop
 
         ! === LEFT / RIGHT exchange ===
         do layer = 1, num_ghost
-            nj = jhi - jlo + 1
-            count = m_var * nj
-
-            allocate(sendbuf_left(count))
-            allocate(recvbuf_right(count))
-            allocate(sendbuf_right(count))
-            allocate(recvbuf_left(count))
 
             ! --- SEND LEFT boundary: i = ilo + layer - 1 ---
-            do var = 1, m_var
-                do j = jlo, jhi
-                    sendbuf_left((var-1)*nj + (j - jlo + 1)) = dat2D(var, ilo + layer - 1, j)
-                end do
-            end do
-
-            call MPI_Sendrecv(sendbuf_left, count, MPI_DOUBLE_PRECISION, left, 100 + layer, &
-                recvbuf_right, count, MPI_DOUBLE_PRECISION, right, 100 + layer, &
-                comm, MPI_STATUS_IGNORE, ierr)
-
-            if (right /= MPI_PROC_NULL) then
-                do var = 1, m_var
-                    do j = jlo, jhi
-                        dat2D(var, ihi + layer, j) = recvbuf_right((var-1)*nj + (j - jlo + 1))
-                    end do
-                end do
-            end if
+            call send_left_right(info, dat2D, m_var, ilo+layer-1, ihi+layer, left, right, 100+layer, comm)
 
             ! --- SEND RIGHT boundary: i = ihi - layer + 1 ---
-            do var = 1, m_var
-                do j = jlo, jhi
-                    sendbuf_right((var-1)*nj + (j - jlo + 1)) = dat2D(var, ihi - layer + 1, j)
-                end do
-            end do
+            call send_left_right(info, dat2D, m_var, ihi-layer+1, ilo-layer, right, left, 200+layer, comm)
 
-            call MPI_Sendrecv(sendbuf_right, count, MPI_DOUBLE_PRECISION, right, 200 + layer, &
-                recvbuf_left, count, MPI_DOUBLE_PRECISION, left, 200 + layer, &
-                comm, MPI_STATUS_IGNORE, ierr)
-
-            if (left /= MPI_PROC_NULL) then
-                do var = 1, m_var
-                    do j = jlo, jhi
-                        dat2D(var, ilo - layer, j) = recvbuf_left((var-1)*nj + (j - jlo + 1))
-                    end do
-                end do
-            end if
-
-            deallocate(sendbuf_left)
-            deallocate(recvbuf_right)
-            deallocate(sendbuf_right)
-            deallocate(recvbuf_left)
         end do
 
         ! === BOTTOM / TOP exchange ===
         do layer = 1, num_ghost
-            ! Receive top ghost
-            call MPI_Irecv(dat2D(:, ilo:ihi, jhi+layer), m_var*(1+abs(ihi-ilo)), MPI_DOUBLE_PRECISION, top, 300+layer, comm, reqs(nreq+1), ierr)
-            nreq = nreq + 1
 
-            ! Receive bottom ghost
-            call MPI_Irecv(dat2D(:, ilo:ihi, jlo-layer), m_var*(1+abs(ihi-ilo)), MPI_DOUBLE_PRECISION, bottom, 400+layer, comm, reqs(nreq+1), ierr)
-            nreq = nreq + 1
+            ! --- SEND BOTTOM boundary: j = jlo + layer - 1 ---
+            call send_top_bottom(info, dat2D, m_var, jlo+layer-1, jhi+layer, bottom, top, 300+layer, comm)
 
-            ! Send bottom boundary
-            call MPI_Isend(dat2D(:, ilo:ihi, jlo+layer-1), m_var*(1+abs(ihi-ilo)), MPI_DOUBLE_PRECISION, bottom, 300+layer, comm, reqs(nreq+1), ierr)
-            nreq = nreq + 1
-
-            ! Send top boundary
-            call MPI_Isend(dat2D(:, ilo:ihi, jhi+1-layer), m_var*(1+abs(ihi-ilo)), MPI_DOUBLE_PRECISION, top, 400+layer, comm, reqs(nreq+1), ierr)
-            nreq = nreq + 1
+            ! --- SEND TOP boundary: j = jhi - layer + 1 ---
+            call send_top_bottom(info, dat2D, m_var, jhi-layer+1, jlo-layer, top, bottom, 400+layer, comm)
         end do
 
-        ! Wait for all communications to complete
-        call MPI_Waitall(nreq, reqs, MPI_STATUSES_IGNORE, ierr)
+        call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+    end subroutine exchange_halos_2D
 
-        deallocate(reqs)
 
-    end subroutine exchange_halos
+    module subroutine send_left_right(info, dat2D, m_var, isend, irecv, rank_origin, rank_target, tag, comm)
+        !! Sends the left or right ghost cells of a rank to its neighbour.
+        type(decomp_info) :: info
+        double precision, allocatable, intent(inout) :: dat2D(:,:,:)
+        integer, intent(in) :: m_var
+        integer, intent(in) :: isend,irecv
+        integer, intent(in) :: rank_origin,rank_target
+        integer, intent(in) :: tag
+        integer, intent(in) :: comm
+
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+        integer :: rank, ierr
+
+        ! Check data input for allocation status
+        if(.NOT.allocated(dat2D)) then
+            call MPI_Comm_rank(comm,rank,ierr)
+            print *, "RANK ", rank, " reports: dat2D not allocated in pack_2d_jslice"
+            call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        ! Create the send and recieve buffer
+        call allocate_buffers(sendbuf,recvbuf,info%jlow,info%jhigh,m_var)
+        ! Pack the ghost slice data to be sent into a 1D contiguous array
+        call pack_2d_jslice(dat2D, sendbuf, isend, m_var, info%jlow, info%jhigh, comm)
+
+        call send_1D_array(sendbuf, recvbuf, rank_origin, rank_target, tag, MPI_DOUBLE_PRECISION, comm)
+
+        ! Only unpack data back into 'dat2D' if 'rank_target' is a valid rank target (== internal boundary)
+        if(rank_target /= MPI_PROC_NULL) call unpack_2d_jslice(dat2D, recvbuf, irecv, m_var, info%jlow, info%jhigh, comm)
+
+        deallocate(sendbuf,recvbuf)
+    end subroutine
+
+    module subroutine send_top_bottom(info, dat2D, m_var, jsend, jrecv, rank_origin, rank_target, tag, comm)
+        !! Sends the top or bottom ghost cells of a rank to its neighbour.
+        type(decomp_info) :: info
+        double precision, allocatable, intent(inout) :: dat2D(:,:,:)
+        integer, intent(in) :: m_var
+        integer, intent(in) :: jsend,jrecv
+        integer, intent(in) :: rank_origin,rank_target
+        integer, intent(in) :: tag
+        integer, intent(in) :: comm
+
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+        integer :: rank, ierr
+
+        ! Check data input for allocation status
+        if(.NOT.allocated(dat2D)) then
+            call MPI_Comm_rank(comm,rank,ierr)
+            print *, "RANK ", rank, " reports: dat2D not allocated in pack_2d_jslice"
+            call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        ! Create the send and recieve buffer
+        call allocate_buffers(sendbuf, recvbuf, info%ilow, info%ihigh, m_var)
+        ! Pack the ghost slice data to be sent into a 1D contiguous array
+        call pack_2d_islice(dat2D, sendbuf, jsend, m_var, info%ilow, info%ihigh, comm)
+
+        call send_1D_array(sendbuf, recvbuf, rank_origin, rank_target, tag, MPI_DOUBLE_PRECISION, comm)
+
+        ! Only unpack data back into 'dat2D' if 'rank_target' is a valid rank target (== internal boundary)
+        if(rank_target /= MPI_PROC_NULL) call unpack_2d_islice(dat2D, recvbuf, jrecv, m_var, info%ilow, info%ihigh, comm)
+
+        deallocate(sendbuf,recvbuf)
+    end subroutine
 end submodule

@@ -2,7 +2,7 @@ submodule(MOD_MPI_decomposition) SMOD_get
     implicit none
 contains
 
-    module subroutine get_local_block_bounds(info,ilo, ihi, jlo, jhi)
+    module subroutine get_local_block_bounds(info, ilo, ihi, jlo, jhi)
         !! Returns the local 2D index bounds for this rank.
         !!
         !! These bounds define the owned rectangular region in the global mesh for
@@ -22,7 +22,7 @@ contains
         comm = info%comm_cart
     end function get_cartesian_comm
 
-    module subroutine get_neighbouring_ranks(info,left, right, bottom, top)
+    module subroutine get_neighbouring_ranks(info, left, right, bottom, top)
         !! Returns the ranks of neighboring processes
         class(decomp_info), intent(in) :: info              !! Object containing the decomposition info
         integer, intent(out) :: left, right, bottom, top    !! local indexing bounds
