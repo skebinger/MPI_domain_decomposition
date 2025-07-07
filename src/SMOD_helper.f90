@@ -1,3 +1,19 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+! 
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
+
 submodule(MOD_MPI_decomposition) SMOD_helper
 
     implicit none
@@ -31,7 +47,7 @@ contains
         integer, intent(in) :: isend !! Slice index of the sending rank
         integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
         integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
-        integer, intent(in) :: comm !! MPI Communicator
+        type(MPI_Comm), intent(in) :: comm !! MPI Communicator
 
         integer :: rank, ierr
         integer :: var, j, num_j
@@ -67,7 +83,7 @@ contains
         integer, intent(in) :: jsend !! Slice index of the sending rank
         integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
         integer, intent(in) :: ilo, ihi !! Rank-specific index boundaries of the i-slice
-        integer, intent(in) :: comm !! MPI Communicator
+        type(MPI_Comm), intent(in) :: comm !! MPI Communicator
 
         integer :: rank, ierr
         integer :: var, i, num_i
@@ -102,7 +118,7 @@ contains
         integer, intent(in) :: irecv !! Slice index in recieving rank
         integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
         integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
-        integer, intent(in) :: comm !! MPI Communicator
+        type(MPI_Comm), intent(in) :: comm !! MPI Communicator
 
         integer :: rank, ierr
         integer :: var, j, num_j
@@ -136,7 +152,7 @@ contains
         integer, intent(in) :: jrecv !! Slice index in recieving rank
         integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
         integer, intent(in) :: ilo, ihi !! Rank-specific index boundaries of the i-slice
-        integer, intent(in) :: comm !! MPI Communicator
+        type(MPI_Comm), intent(in) :: comm !! MPI Communicator
 
         integer :: rank, ierr
         integer :: var, i, num_i

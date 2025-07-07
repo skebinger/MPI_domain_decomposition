@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# ==============*BASH*============== #
+#   _ __ ___  _ __ (_) __| | ___| |  #
+#  | '_ ` _ \| '_ \| |/ _` |/ __| |  #
+#  | | | | | | |_) | | (_| | (__| |  #
+#  |_| |_| |_| .__/|_|\__,_|\___|_|  #
+#            |_|                     #
+# ================================== #
+# ================================================================= #
+#  Copyright (C) 2025, Simon Kebinger
+# 
+#  This file is part of the MPI decomposition library "mpidcl" for 
+#  structured multidmensional domains.
+# 
+#  This library is distributed under the BSD 3-Clause License.
+# ================================================================= #
+
 # Usage:
 # ./makeall.sh [BuildType] [SharedLib ON/OFF] [MPIFLAVOR] [BuildLib ON/OFF] [BuildTest ON/OFF]
 # BuildType : Test, Debug, Release
@@ -41,7 +57,7 @@ if [ "$BUILD_LIB" = "ON" ]; then
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
         -DBUILD_SHARED_LIBS=$BUILD_SHARED \
         -DMPIFLAVOR=$MPIFLAVOR \
-        --debug-output
+        #--debug-output
 
     make -j$(nproc)
 
@@ -62,7 +78,7 @@ if [ "$BUILD_TESTS" = "ON" ]; then
 
     cmake ../test \
         -DMPIFLAVOR=$MPIFLAVOR \
-        --debug-output
+        #--debug-output
 
     make -j$(nproc)
 

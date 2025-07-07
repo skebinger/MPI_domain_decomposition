@@ -1,3 +1,19 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+! 
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
+
 submodule(MOD_MPI_decomposition) SMOD_init_decomposition
     !! Deals with the initialization of the domain decomposition
     implicit none
@@ -32,7 +48,7 @@ contains
         class(decomp_info), intent(out) :: info !! Object containing the decomposition info
         integer, intent(in) :: m_xi             !! Total number of cells in the i-direction (xi-axis)
         integer, intent(in) :: m_eta            !! Total number of cells in the j-direction (eta-axis)
-        integer, intent(in) :: comm             !! MPI communicator (normally 'MPI_COMM_WORLD')
+        type(MPI_Comm), intent(in) :: comm      !! MPI communicator (normally 'MPI_COMM_WORLD')
 
 
         ! Internal variables
@@ -129,16 +145,6 @@ contains
             deallocate(ilows, ihighs, jlows, jhighs)
         end if
 
-        write(rank_str, '(I0)') rank
-        ! Write decomposition to disk
-        open(unit=1,file=adjustl('output/domain_rank_' // trim(rank_str)//'.dat'),status='unknown',form='formatted')
-        write(1,*) rank
-        write(1,*) info%ilow
-        write(1,*) info%ihigh
-        write(1,*) info%jlow
-        write(1,*) info%jhigh
-        close(unit=1)
-
     end subroutine initialize_decomposition
 
     module subroutine setup_cartesian_topology(info,comm_in)
@@ -148,7 +154,7 @@ contains
         !! calculation executed in initialize_decomposition. Sets the global
         !! module variable 'comm_cart'.
         class(decomp_info) :: info !! Object containing the decomposition info
-        integer, intent(in) :: comm_in !! Input communicator (usually MPI_COMM_WORLD)
+        type(MPI_Comm), intent(in) :: comm_in !! Input communicator (usually MPI_COMM_WORLD)
 
         integer :: ierr, rank, size
         integer :: coords(2)
@@ -190,5 +196,29 @@ contains
         hi = lo + base - 1
         if (rank < extra) hi = hi + 1
     end subroutine compute_range
+
+
+    subroutine write_decom_to_disk(info,comm)
+        type(decomp_info), intent(in) :: info
+        type(MPI_Comm), intent(in) :: comm
+
+        character(len=40) :: rank_str
+        integer :: rank,size,ierr
+        integer :: exitstat,cmdstat
+
+        call MPI_Comm_rank(comm, rank, ierr)
+        call MPI_Comm_size(comm, size, ierr)
+
+        write(rank_str, '(I0)') rank
+        ! Write decomposition to disk
+        call execute_command_line("mkdir -p ./output",.TRUE.,exitstat,cmdstat)
+        open(unit=1,file=adjustl('output/domain_rank_' // trim(rank_str)//'.dat'),status='unknown',form='formatted')
+        write(1,*) rank
+        write(1,*) info%ilow
+        write(1,*) info%ihigh
+        write(1,*) info%jlow
+        write(1,*) info%jhigh
+        close(unit=1)
+    end subroutine
 
 end submodule

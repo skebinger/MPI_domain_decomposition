@@ -1,6 +1,22 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+! 
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
+
 submodule(MOD_MPI_decomposition) SMOD_info
-    !! Submodule contains various subroutines to retrieve information about the 
-    !! decomposition, such as cartesian rank layout or the index decomposition 
+    !! Submodule contains various subroutines to retrieve information about the
+    !! decomposition, such as cartesian rank layout or the index decomposition
     !! summary.
 
     implicit none
@@ -12,7 +28,7 @@ contains
         !! Gathers the local index ranges from all ranks and prints a formatted
         !! table on rank 0 showing the (i,j) bounds for each rank's block.
         class(decomp_info) :: info !! Object containing the decomposition info
-        integer, intent(in) :: comm !! MPI communicator (usually MPI_COMM_WORLD)
+        type(MPI_Comm), intent(in) :: comm !! MPI communicator (usually MPI_COMM_WORLD)
 
         ! local variables
         integer :: rank, size, ierr
@@ -50,7 +66,6 @@ contains
 
     module subroutine print_cartesian_rank_layout(info)
         !! Prints a visual representation of the rank layout in the form of a chessboard.
-        use mpi
         class(decomp_info), intent(in) :: info !! Object containing the decomposition info
 
         ! local variables
@@ -62,6 +77,7 @@ contains
         integer, allocatable :: all_ranks(:)
         integer, allocatable :: all_coords(:,:)
         integer :: found_rank
+        integer :: count
 
         call MPI_Comm_rank(info%comm_cart, rank, ierr)
         call MPI_Comm_size(info%comm_cart, size, ierr)
@@ -69,16 +85,20 @@ contains
         call MPI_Cart_coords(info%comm_cart, rank, 2, coords, ierr)
 
         local_info = [rank, coords(1), coords(2)]
+        count = 3 !replace later when movint over to 3D decomposition
 
         if (rank == 0) then
             allocate(recvbuf(3*size))
         end if
 
         if (rank == 0) then
-            call MPI_Gather(local_info, 3, MPI_INTEGER, recvbuf, 3, MPI_INTEGER, 0, info%comm_cart, ierr)
+            ! Root: use MPI_IN_PLACE to indicate send buffer is already in recvbuf
+            call MPI_Gather(MPI_IN_PLACE, count, MPI_INTEGER, recvbuf, 3, MPI_INTEGER, 0, info%comm_cart, ierr)
         else
-            call MPI_Gather(local_info, 3, MPI_INTEGER, MPI_BOTTOM, 3, MPI_INTEGER, 0, info%comm_cart, ierr)
+            ! Non-root: send local_info, recvbuf argument ignored so just pass any valid buffer
+            call MPI_Gather(local_info, count, MPI_INTEGER, local_info, 3, MPI_INTEGER, 0, info%comm_cart, ierr)
         end if
+
 
         ! only print on rank 0 (master rank)
         if (rank == 0) then

@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# ==============*BASH*============== #
+#   _ __ ___  _ __ (_) __| | ___| |  #
+#  | '_ ` _ \| '_ \| |/ _` |/ __| |  #
+#  | | | | | | |_) | | (_| | (__| |  #
+#  |_| |_| |_| .__/|_|\__,_|\___|_|  #
+#            |_|                     #
+# ================================== #
+# ================================================================= #
+#  Copyright (C) 2025, Simon Kebinger
+# 
+#  This file is part of the MPI decomposition library "mpidcl" for 
+#  structured multidmensional domains.
+# 
+#  This library is distributed under the BSD 3-Clause License.
+# ================================================================= #
+
 set -e
 set -o pipefail
 
@@ -67,6 +83,7 @@ build_pfunit() {
     cmake "$SRC_DIR" \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DMPI=YES \
+        -DENABLE_MPI_F08=YES \
         -DOPENMP=NO \
         -Dcoverage=NO
 

@@ -1,3 +1,23 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+!  
+!  I built this library as a means for a private CFD project in the 
+!  hope that it might also be useful for others looking for an 
+!  accessible entry into MPI programming in CFD. Feel free to change
+!  and improve it as you please.
+!  
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
 
 module MOD_MPI_decomposition
     !! (so far 2D) block domain decomposition for MPI-based structured grid solvers.
@@ -16,17 +36,8 @@ module MOD_MPI_decomposition
     !!
     !! All sweep directions (xi and eta) operate over the same local block.
 
-    use mpi
+    use mpi_f08
     implicit none
-
-    !public :: initialize_decomposition
-    !public :: get_local_block_bounds
-    !public :: print_decomposition_summary
-    !public :: setup_cartesian_topology
-    !public :: get_cartesian_comm
-    !public :: get_neighbouring_ranks
-    !public :: exchange_halos_2D
-    !public :: print_cartesian_rank_layout
 
     type :: decomp_info
         !! Contains the domain decomposition information, such as
@@ -35,7 +46,7 @@ module MOD_MPI_decomposition
         integer :: jlow, jhigh                                 !! Local j-direction bounds
 
         integer :: nbr_top, nbr_bottom, nbr_left, nbr_right    !! neighbouring ranks
-        integer :: comm_cart                                   !! cartesian communicator
+        type(MPI_Comm) :: comm_cart                            !! cartesian communicator
 
         integer :: dims(2)                                     !! Processor grid in i and j directions
     contains
@@ -83,7 +94,7 @@ module MOD_MPI_decomposition
             class(decomp_info), intent(out) :: info !! Object containing the decomposition info
             integer, intent(in) :: m_xi             !! Total number of cells in the i-direction (xi-axis)
             integer, intent(in) :: m_eta            !! Total number of cells in the j-direction (eta-axis)
-            integer, intent(in) :: comm             !! MPI communicator (normally 'MPI_COMM_WORLD')
+            type(MPI_Comm), intent(in) :: comm      !! MPI communicator (normally 'MPI_COMM_WORLD')
         end subroutine
 
         module subroutine setup_cartesian_topology(info, comm_in)
@@ -93,7 +104,7 @@ module MOD_MPI_decomposition
             !! calculation executed in initialize_decomposition. Sets the global
             !! module variable 'comm_cart'.
             class(decomp_info) :: info      !! Object containing the decomposition info
-            integer, intent(in) :: comm_in  !! Input communicator (usually MPI_COMM_WORLD)
+            type(MPI_Comm), intent(in) :: comm_in  !! Input communicator (usually MPI_COMM_WORLD)
         end subroutine
     end interface
 
@@ -107,12 +118,11 @@ module MOD_MPI_decomposition
             !! Gathers the local index ranges from all ranks and prints a formatted
             !! table on rank 0 showing the (i,j) bounds for each rank's block.
             class(decomp_info) :: info  !! Object containing the decomposition info
-            integer, intent(in) :: comm !! MPI communicator (usually MPI_COMM_WORLD)
+            type(MPI_Comm), intent(in) :: comm !! MPI communicator (usually MPI_COMM_WORLD)
         end subroutine
 
         module subroutine print_cartesian_rank_layout(info)
             !! Prints a visual representation of the rank layout in the form of a chessboard.
-            use mpi
             class(decomp_info), intent(in) :: info
         end subroutine
     end interface
@@ -132,7 +142,7 @@ module MOD_MPI_decomposition
         module function get_cartesian_comm(info) result(comm)
             !! Returns the stored Cartesian communicator
             class(decomp_info), intent(in) :: info
-            integer :: comm
+            type(MPI_Comm) :: comm
         end function
         module subroutine get_neighbouring_ranks(info,left, right, bottom, top)
             !! Returns the ranks of neighboring processes
@@ -160,27 +170,37 @@ module MOD_MPI_decomposition
             integer, intent(in) :: right        !! MPI rank of right neighbor (or MPI_PROC_NULL)
             integer, intent(in) :: bottom       !! MPI rank of bottom neighbor (or MPI_PROC_NULL)
             integer, intent(in) :: top          !! MPI rank of top neighbor (or MPI_PROC_NULL)
-            integer, intent(in) :: comm         !! MPI communicator
+            type(MPI_Comm), intent(in) :: comm  !! MPI communicator
         end subroutine
 
-        module subroutine send_left_right(info, dat2D, m_var, isend, irecv, rank_origin, rank_target, tag, comm)
-            type(decomp_info) :: info
-            double precision, allocatable, intent(inout) :: dat2D(:,:,:)
-            integer, intent(in) :: m_var
-            integer, intent(in) :: isend,irecv
-            integer, intent(in) :: rank_origin,rank_target
-            integer, intent(in) :: tag
-            integer, intent(in) :: comm
+        module subroutine send_j_ghost(info, dat2D, m_var, isend, irecv, rank_target, rank_origin, tag, comm)
+        !! Sends the left or right ghost cells of a rank to its neighbour.
+        !! The origin is defined as the neighbouring rank sending data to the calling rank,
+        !! 'target' is the rank, that recieves data from this (calling) rank.
+        type(decomp_info) :: info
+        double precision, allocatable, intent(inout) :: dat2D(:,:,:)
+        integer, intent(in) :: m_var !! Number of variables per grid point
+        integer, intent(in) :: isend !! i-index of the slice of which data is sent
+        integer, intent(in) :: irecv !! i-index of the slice to which data is recieved
+        integer, intent(in) :: rank_target !! Origin rank of an MPI Transmission
+        integer, intent(in) :: rank_origin !! Target rank of an MPI Transmission
+        integer, intent(in) :: tag !! Communication tag
+        type(MPI_Comm), intent(in) :: comm !! MPI communicator
         end subroutine
 
-        module subroutine send_top_bottom(info, dat2D, m_var, jsend, jrecv, rank_origin, rank_target, tag, comm)
-            type(decomp_info) :: info
-            double precision, allocatable, intent(inout) :: dat2D(:,:,:)
-            integer, intent(in) :: m_var
-            integer, intent(in) :: jsend,jrecv
-            integer, intent(in) :: rank_origin,rank_target
-            integer, intent(in) :: tag
-            integer, intent(in) :: comm
+        module subroutine send_i_ghost(info, dat2D, m_var, jsend, jrecv, rank_target, rank_origin, tag, comm)
+        !! Sends the top or bottom ghost cells of a rank to its neighbour.
+        !! The origin is defined as the neighbouring rank sending data to the calling rank,
+        !! 'target' is the rank, that recieves data from this (calling) rank.
+        type(decomp_info) :: info
+        double precision, allocatable, intent(inout) :: dat2D(:,:,:)
+        integer, intent(in) :: m_var !! Number of variables per grid point
+        integer, intent(in) :: jsend !! j-index of the slice of which data is sent
+        integer, intent(in) :: jrecv !! j-index of the slice to which data is recieved
+        integer, intent(in) :: rank_target !! Origin rank of an MPI Transmission
+        integer, intent(in) :: rank_origin !! Target rank of an MPI Transmission
+        integer, intent(in) :: tag !! Communication tag
+        type(MPI_Comm), intent(in) :: comm !! MPI communicator
         end subroutine
     end interface
 
@@ -193,27 +213,21 @@ module MOD_MPI_decomposition
             double precision, allocatable, intent(inout) :: recvbuf(:)
             integer, intent(in) :: origin, target
             integer, intent(in) :: tag
-            integer, intent(in) :: MPI_SEND_TYPE
-            integer, intent(in) :: comm
+            type(MPI_Datatype), intent(in) :: MPI_SEND_TYPE
+            type(MPI_Comm), intent(in) :: comm
         end subroutine
     end interface
 
     !=======================================================================================================!
     ! helper subroutines
     !=======================================================================================================!
-    abstract interface
-        !! Abstract interface for the 2d-packing subroutines
-        subroutine pack_2d_slice(dat2D, buf, isend, m_var, jlo, jhi, comm)
-            !! Compiles a 1D array into which all the data from 'dat2D(1:mvar,isend,jlo:jhi)' is packed.
-            !!
-            !! 'dat2D' is flattened into a 1D contiguous array.
-            double precision, allocatable, intent(in) :: dat2D(:,:,:) !! Multi-variable 2D array: dat2D(m_var, i, j)
-            double precision, allocatable, intent(inout) :: buf(:) !! Buffer (flattened) 1D array for the mpi send transmission
-            integer, intent(in) :: isend !! Slice index of the sending rank
-            integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
-            integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
-            integer, intent(in) :: comm !! MPI Communicator
-        end subroutine
+    interface pack_islice
+        module procedure :: pack_2d_islice
+        !module procedure :: pack_3d_islice
+    end interface
+    interface pack_jslice
+        module procedure :: pack_2d_jslice
+        !module procedure :: pack_3d_jslice
     end interface
 
     interface
@@ -236,7 +250,7 @@ module MOD_MPI_decomposition
             integer, intent(in) :: isend !! Slice index of the sending rank
             integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
             integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
-            integer, intent(in) :: comm !! MPI Communicator
+            type(MPI_Comm), intent(in) :: comm !! MPI Communicator
         end subroutine
 
         module subroutine pack_2d_islice(dat2D, buf, jsend, m_var, ilo, ihi, comm)
@@ -248,7 +262,7 @@ module MOD_MPI_decomposition
             integer, intent(in) :: jsend !! Slice index of the sending rank
             integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
             integer, intent(in) :: ilo, ihi !! Rank-specific index boundaries of the i-slice
-            integer, intent(in) :: comm !! MPI Communicator
+            type(MPI_Comm), intent(in) :: comm !! MPI Communicator
         end subroutine
 
         module subroutine unpack_2d_jslice(dat2D, recvbuf, irecv, m_var, jlo, jhi, comm)
@@ -259,7 +273,7 @@ module MOD_MPI_decomposition
             integer, intent(in) :: irecv !! Slice index in recieving rank
             integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
             integer, intent(in) :: jlo, jhi !! Rank-specific index boundaries of the j-slice
-            integer, intent(in) :: comm !! MPI Communicator
+            type(MPI_Comm), intent(in) :: comm !! MPI Communicator
         end subroutine
 
         module subroutine unpack_2d_islice(dat2D, recvbuf, jrecv, m_var, ilo, ihi, comm)
@@ -270,20 +284,10 @@ module MOD_MPI_decomposition
             integer, intent(in) :: jrecv !! Slice index in recieving rank
             integer, intent(in) :: m_var !! Number of field variables in 'dat2D'
             integer, intent(in) :: ilo, ihi !! Rank-specific index boundaries of the i-slice
-            integer, intent(in) :: comm !! MPI Communicator
+            type(MPI_Comm), intent(in) :: comm !! MPI Communicator
         end subroutine
     end interface
 
 contains
-
-    !!added just for testing the pFUnit framework.
-    !! TB removed once other tests are implemented
-    function add(a,b)result(c)
-        integer, intent(in) :: a,b
-        integer :: c
-
-        c=a+b
-
-    end function
 
 end module MOD_MPI_decomposition

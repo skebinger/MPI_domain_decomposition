@@ -1,3 +1,19 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+! 
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
+
 submodule(MOD_MPI_decomposition) SMOD_communication
     implicit none
 contains
@@ -12,8 +28,8 @@ contains
         double precision, allocatable, intent(inout) :: recvbuf(:)
         integer, intent(in) :: origin, target
         integer, intent(in) :: tag
-        integer, intent(in) :: MPI_SEND_TYPE
-        integer, intent(in) :: comm
+        type(MPI_Datatype), intent(in) :: MPI_SEND_TYPE
+        type(MPI_Comm), intent(in) :: comm
 
         integer :: l_bound, u_bound, count
         integer :: rank, ierr
@@ -34,7 +50,7 @@ contains
         u_bound = ubound(sendbuf,1)
         count = u_bound-l_bound+1
 
-        call MPI_Sendrecv(sendbuf, count, MPI_DOUBLE_PRECISION, origin, tag, &
+        call MPI_Sendrecv(sendbuf, count, MPI_SEND_TYPE, origin, tag, &
             recvbuf, count, MPI_SEND_TYPE, target, tag, &
             comm, MPI_STATUS_IGNORE, ierr)
     end subroutine

@@ -1,3 +1,19 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+! 
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
+
 submodule(MOD_MPI_decomposition) SMOD_MPI_halo_exchange
     !! Submodule handling the halo exchange at processor interfaces.
     implicit none
@@ -18,39 +34,26 @@ contains
         integer, intent(in) :: right        !! MPI rank of right neighbor (or MPI_PROC_NULL)
         integer, intent(in) :: bottom       !! MPI rank of bottom neighbor (or MPI_PROC_NULL)
         integer, intent(in) :: top          !! MPI rank of top neighbor (or MPI_PROC_NULL)
-        integer, intent(in) :: comm         !! MPI communicator
+        type(MPI_Comm), intent(in) :: comm  !! MPI communicator
 
         ! local variables
-        integer :: i,j, layer, ierr, rank
-        integer :: recv_type, send_type
-        integer :: sizes(3), subsizes(3), starts(3)
-        integer :: nreq
-
-        ! Buffer arrays for send and receive — dimensioned for m_var * num_j_points
-        double precision, allocatable :: sendbuf_left(:), recvbuf_right(:)
-        double precision, allocatable :: sendbuf_right(:), recvbuf_left(:)
-        integer :: nj, count,var
+        integer :: layer
 
         ! local index range of rank
         integer :: ilo,ihi,jlo,jhi
 
-        integer :: offset_i_right_recv, offset_i_left_recv, offset_i_send_left, offset_i_send_right
-
-        call MPI_Comm_rank(MPI_COMM_WORLD,rank,ierr)
+        !call MPI_Comm_rank(comm,rank,ierr)
 
         call info%get_local_block_bounds(ilo,ihi,jlo,jhi)
-
-        !print *, left,right,top,bottom,rank
-        call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
         ! === LEFT / RIGHT exchange ===
         do layer = 1, num_ghost
 
             ! --- SEND LEFT boundary: i = ilo + layer - 1 ---
-            call send_left_right(info, dat2D, m_var, ilo+layer-1, ihi+layer, left, right, 100+layer, comm)
+            call send_j_ghost(info, dat2D, m_var, ilo+layer-1, ihi+layer, left, right, 100+layer, comm)
 
             ! --- SEND RIGHT boundary: i = ihi - layer + 1 ---
-            call send_left_right(info, dat2D, m_var, ihi-layer+1, ilo-layer, right, left, 200+layer, comm)
+            call send_j_ghost(info, dat2D, m_var, ihi-layer+1, ilo-layer, right, left, 200+layer, comm)
 
         end do
 
@@ -58,25 +61,28 @@ contains
         do layer = 1, num_ghost
 
             ! --- SEND BOTTOM boundary: j = jlo + layer - 1 ---
-            call send_top_bottom(info, dat2D, m_var, jlo+layer-1, jhi+layer, bottom, top, 300+layer, comm)
+            call send_i_ghost(info, dat2D, m_var, jlo+layer-1, jhi+layer, bottom, top, 300+layer, comm)
 
             ! --- SEND TOP boundary: j = jhi - layer + 1 ---
-            call send_top_bottom(info, dat2D, m_var, jhi-layer+1, jlo-layer, top, bottom, 400+layer, comm)
+            call send_i_ghost(info, dat2D, m_var, jhi-layer+1, jlo-layer, top, bottom, 400+layer, comm)
         end do
 
-        call MPI_BARRIER(MPI_COMM_WORLD,ierr)
     end subroutine exchange_halos_2D
 
 
-    module subroutine send_left_right(info, dat2D, m_var, isend, irecv, rank_origin, rank_target, tag, comm)
+    module subroutine send_j_ghost(info, dat2D, m_var, isend, irecv, rank_target, rank_origin, tag, comm)
         !! Sends the left or right ghost cells of a rank to its neighbour.
+        !! The origin is defined as the neighbouring rank sending data to the calling rank,
+        !! 'target' is the rank, that recieves data from this (calling) rank.
         type(decomp_info) :: info
         double precision, allocatable, intent(inout) :: dat2D(:,:,:)
-        integer, intent(in) :: m_var
-        integer, intent(in) :: isend,irecv
-        integer, intent(in) :: rank_origin,rank_target
-        integer, intent(in) :: tag
-        integer, intent(in) :: comm
+        integer, intent(in) :: m_var !! Number of variables per grid point
+        integer, intent(in) :: isend !! i-index of the slice of which data is sent
+        integer, intent(in) :: irecv !! i-index of the slice to which data is recieved
+        integer, intent(in) :: rank_target !! Origin rank of an MPI Transmission
+        integer, intent(in) :: rank_origin !! Target rank of an MPI Transmission
+        integer, intent(in) :: tag !! Communication tag
+        type(MPI_Comm), intent(in) :: comm !! MPI communicator
 
         double precision, allocatable :: sendbuf(:), recvbuf(:)
         integer :: rank, ierr
@@ -91,25 +97,30 @@ contains
         ! Create the send and recieve buffer
         call allocate_buffers(sendbuf,recvbuf,info%jlow,info%jhigh,m_var)
         ! Pack the ghost slice data to be sent into a 1D contiguous array
-        call pack_2d_jslice(dat2D, sendbuf, isend, m_var, info%jlow, info%jhigh, comm)
+        ! Only if the target rank is avalid target (=internal boudnary) do the work and pack it
+        if(rank_target /= MPI_PROC_NULL) call pack_2d_jslice(dat2D, sendbuf, isend, m_var, info%jlow, info%jhigh, comm)
 
-        call send_1D_array(sendbuf, recvbuf, rank_origin, rank_target, tag, MPI_DOUBLE_PRECISION, comm)
+        call send_1D_array(sendbuf, recvbuf, rank_target, rank_origin, tag, MPI_DOUBLE_PRECISION, comm)
 
-        ! Only unpack data back into 'dat2D' if 'rank_target' is a valid rank target (== internal boundary)
-        if(rank_target /= MPI_PROC_NULL) call unpack_2d_jslice(dat2D, recvbuf, irecv, m_var, info%jlow, info%jhigh, comm)
+        ! only execute if target is a valid rank (=internal boundary)
+        if(rank_origin /= MPI_PROC_NULL) call unpack_2d_jslice(dat2D, recvbuf, irecv, m_var, info%jlow, info%jhigh, comm)
 
         deallocate(sendbuf,recvbuf)
     end subroutine
 
-    module subroutine send_top_bottom(info, dat2D, m_var, jsend, jrecv, rank_origin, rank_target, tag, comm)
+    module subroutine send_i_ghost(info, dat2D, m_var, jsend, jrecv, rank_target, rank_origin, tag, comm)
         !! Sends the top or bottom ghost cells of a rank to its neighbour.
+        !! The origin is defined as the neighbouring rank sending data to the calling rank,
+        !! 'target' is the rank, that recieves data from this (calling) rank.
         type(decomp_info) :: info
         double precision, allocatable, intent(inout) :: dat2D(:,:,:)
-        integer, intent(in) :: m_var
-        integer, intent(in) :: jsend,jrecv
-        integer, intent(in) :: rank_origin,rank_target
-        integer, intent(in) :: tag
-        integer, intent(in) :: comm
+        integer, intent(in) :: m_var !! Number of variables per grid point
+        integer, intent(in) :: jsend !! j-index of the slice of which data is sent
+        integer, intent(in) :: jrecv !! j-index of the slice to which data is recieved
+        integer, intent(in) :: rank_target !! Origin rank of an MPI Transmission
+        integer, intent(in) :: rank_origin !! Target rank of an MPI Transmission
+        integer, intent(in) :: tag !! Communication tag
+        type(MPI_Comm), intent(in) :: comm !! MPI communicator
 
         double precision, allocatable :: sendbuf(:), recvbuf(:)
         integer :: rank, ierr
@@ -124,12 +135,13 @@ contains
         ! Create the send and recieve buffer
         call allocate_buffers(sendbuf, recvbuf, info%ilow, info%ihigh, m_var)
         ! Pack the ghost slice data to be sent into a 1D contiguous array
-        call pack_2d_islice(dat2D, sendbuf, jsend, m_var, info%ilow, info%ihigh, comm)
+        ! Only if the target rank is avalid target (=internal boudnary) do the work and pack it
+        if(rank_target /= MPI_PROC_NULL) call pack_2d_islice(dat2D, sendbuf, jsend, m_var, info%ilow, info%ihigh, comm)
 
-        call send_1D_array(sendbuf, recvbuf, rank_origin, rank_target, tag, MPI_DOUBLE_PRECISION, comm)
+        call send_1D_array(sendbuf, recvbuf, rank_target, rank_origin, tag, MPI_DOUBLE_PRECISION, comm)
 
-        ! Only unpack data back into 'dat2D' if 'rank_target' is a valid rank target (== internal boundary)
-        if(rank_target /= MPI_PROC_NULL) call unpack_2d_islice(dat2D, recvbuf, jrecv, m_var, info%ilow, info%ihigh, comm)
+        ! only execute if target is a valid rank (=internal boundary)
+        if(rank_origin /= MPI_PROC_NULL) call unpack_2d_islice(dat2D, recvbuf, jrecv, m_var, info%ilow, info%ihigh, comm)
 
         deallocate(sendbuf,recvbuf)
     end subroutine

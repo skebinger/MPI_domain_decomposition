@@ -1,3 +1,19 @@
+! =============*FORTRAN*============ !
+!   _ __ ___  _ __ (_) __| | ___| |  !
+!  | '_ ` _ \| '_ \| |/ _` |/ __| |  !
+!  | | | | | | |_) | | (_| | (__| |  !
+!  |_| |_| |_| .__/|_|\__,_|\___|_|  !
+!            |_|                     !
+! ================================== !
+! ================================================================= !
+!  Copyright (C) 2025, Simon Kebinger
+! 
+!  This file is part of the MPI decomposition library "mpidcl" for 
+!  structured multidmensional domains.
+! 
+!  This library is distributed under the BSD 3-Clause License.
+! ================================================================= !
+
 submodule(MOD_MPI_decomposition) SMOD_get
     implicit none
 contains
@@ -18,7 +34,7 @@ contains
     module function get_cartesian_comm(info) result(comm)
         !! Returns the stored Cartesian communicator
         class(decomp_info), intent(in) :: info !! Object containing the decomposition info
-        integer :: comm
+        type(MPI_Comm) :: comm
         comm = info%comm_cart
     end function get_cartesian_comm
 
