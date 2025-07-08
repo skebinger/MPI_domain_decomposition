@@ -7,10 +7,10 @@
 ! ================================== !
 ! ================================================================= !
 !  Copyright (C) 2025, Simon Kebinger
-! 
-!  This file is part of the MPI decomposition library "mpidcl" for 
+!
+!  This file is part of the MPI decomposition library "mpidcl" for
 !  structured multidmensional domains.
-! 
+!
 !  This library is distributed under the BSD 3-Clause License.
 ! ================================================================= !
 
@@ -23,8 +23,12 @@ contains
         !!
         !! These bounds define the owned rectangular region in the global mesh for
         !! all directional sweeps. Ghost cells must be added externally by the solver.
-        class(decomp_info), intent(in) :: info      !! Object containing the decomposition info
-        integer, intent(out) :: ilo, ihi, jlo, jhi  !! local indexing range
+        class(decomp_info), intent(in) :: info  !! Object containing the decomposition info
+        integer, intent(out) :: ilo             !! local indexing range
+        integer, intent(out) :: ihi             !! local indexing range
+        integer, intent(out) :: jlo             !! local indexing range
+        integer, intent(out) :: jhi             !! local indexing range
+
         ilo = info%ilow
         ihi = info%ihigh
         jlo = info%jlow
@@ -33,15 +37,20 @@ contains
 
     module function get_cartesian_comm(info) result(comm)
         !! Returns the stored Cartesian communicator
-        class(decomp_info), intent(in) :: info !! Object containing the decomposition info
-        type(MPI_Comm) :: comm
+        class(decomp_info), intent(in) :: info  !! Object containing the decomposition info
+        type(MPI_Comm) :: comm                  !! MPI cartesian communicator
+
         comm = info%comm_cart
     end function get_cartesian_comm
 
     module subroutine get_neighbouring_ranks(info, left, right, bottom, top)
         !! Returns the ranks of neighboring processes
-        class(decomp_info), intent(in) :: info              !! Object containing the decomposition info
-        integer, intent(out) :: left, right, bottom, top    !! local indexing bounds
+        class(decomp_info), intent(in) :: info  !! Object containing the decomposition info
+        integer, intent(out) :: left            !! Neighbouring ranks
+        integer, intent(out) :: right           !! Neighbouring ranks
+        integer, intent(out) :: bottom          !! Neighbouring ranks
+        integer, intent(out) :: top             !! Neighbouring ranks
+
         left    = info%nbr_left
         right   = info%nbr_right
         bottom  = info%nbr_bottom

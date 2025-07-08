@@ -23,12 +23,12 @@ submodule(MOD_MPI_decomposition) SMOD_info
 contains
 
     module subroutine print_decomposition_summary(info, comm)
-        !! Prints the domain decomposition summary for all MPI ranks.
-        !!
-        !! Gathers the local index ranges from all ranks and prints a formatted
-        !! table on rank 0 showing the (i,j) bounds for each rank's block.
-        class(decomp_info) :: info !! Object containing the decomposition info
-        type(MPI_Comm), intent(in) :: comm !! MPI communicator (usually MPI_COMM_WORLD)
+            !! Prints the domain decomposition summary for all MPI ranks.
+            !!
+            !! Gathers the local index ranges from all ranks and prints a formatted
+            !! table on rank 0 showing the (i,j) bounds for each rank's block.
+            class(decomp_info) :: info          !! Object containing the decomposition info
+            type(MPI_Comm), intent(in) :: comm  !! MPI communicator (usually MPI_COMM_WORLD)
 
         ! local variables
         integer :: rank, size, ierr
@@ -65,8 +65,8 @@ contains
     end subroutine print_decomposition_summary
 
     module subroutine print_cartesian_rank_layout(info)
-        !! Prints a visual representation of the rank layout in the form of a chessboard.
-        class(decomp_info), intent(in) :: info !! Object containing the decomposition info
+            !! Prints a visual representation of the rank layout in the form of a chessboard.
+            class(decomp_info), intent(in) :: info !! Object containing the decomposition info
 
         ! local variables
         integer :: rank, ierr, size

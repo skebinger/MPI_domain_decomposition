@@ -62,8 +62,6 @@ contains
         integer :: il, ih, jl, jh
         integer :: r                    ! Flattened rank index
 
-        character(len=40) :: rank_str
-
         call MPI_Comm_rank(comm, rank, ierr)
         call MPI_Comm_size(comm, size, ierr)
 
@@ -196,7 +194,6 @@ contains
         hi = lo + base - 1
         if (rank < extra) hi = hi + 1
     end subroutine compute_range
-
 
     subroutine write_decom_to_disk(info,comm)
         type(decomp_info), intent(in) :: info

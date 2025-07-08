@@ -73,7 +73,7 @@ contains
     module subroutine send_j_ghost(info, dat2D, m_var, isend, irecv, rank_target, rank_origin, tag, comm)
         !! Sends the left or right ghost cells of a rank to its neighbour.
         !! The origin is defined as the neighbouring rank sending data to the calling rank,
-        !! 'target' is the rank, that recieves data from this (calling) rank.
+        !! `target` is the rank, that recieves data from this (calling) rank.
         type(decomp_info) :: info
         double precision, allocatable, intent(inout) :: dat2D(:,:,:)
         integer, intent(in) :: m_var !! Number of variables per grid point
@@ -100,18 +100,18 @@ contains
         ! Only if the target rank is avalid target (=internal boudnary) do the work and pack it
         if(rank_target /= MPI_PROC_NULL) call pack_2d_jslice(dat2D, sendbuf, isend, m_var, info%jlow, info%jhigh, comm)
 
-        call send_1D_array(sendbuf, recvbuf, rank_target, rank_origin, tag, MPI_DOUBLE_PRECISION, comm)
+        call send_rec_1D_array(sendbuf, recvbuf, rank_target, rank_origin, tag, comm)
 
         ! only execute if target is a valid rank (=internal boundary)
         if(rank_origin /= MPI_PROC_NULL) call unpack_2d_jslice(dat2D, recvbuf, irecv, m_var, info%jlow, info%jhigh, comm)
 
-        deallocate(sendbuf,recvbuf)
+        call deallocate_buffers(sendbuf,recvbuf)
     end subroutine
 
     module subroutine send_i_ghost(info, dat2D, m_var, jsend, jrecv, rank_target, rank_origin, tag, comm)
         !! Sends the top or bottom ghost cells of a rank to its neighbour.
         !! The origin is defined as the neighbouring rank sending data to the calling rank,
-        !! 'target' is the rank, that recieves data from this (calling) rank.
+        !! `target` is the rank, that recieves data from this (calling) rank.
         type(decomp_info) :: info
         double precision, allocatable, intent(inout) :: dat2D(:,:,:)
         integer, intent(in) :: m_var !! Number of variables per grid point
@@ -138,11 +138,11 @@ contains
         ! Only if the target rank is avalid target (=internal boudnary) do the work and pack it
         if(rank_target /= MPI_PROC_NULL) call pack_2d_islice(dat2D, sendbuf, jsend, m_var, info%ilow, info%ihigh, comm)
 
-        call send_1D_array(sendbuf, recvbuf, rank_target, rank_origin, tag, MPI_DOUBLE_PRECISION, comm)
+        call send_rec_1D_array(sendbuf, recvbuf, rank_target, rank_origin, tag, comm)
 
         ! only execute if target is a valid rank (=internal boundary)
         if(rank_origin /= MPI_PROC_NULL) call unpack_2d_islice(dat2D, recvbuf, jrecv, m_var, info%ilow, info%ihigh, comm)
 
-        deallocate(sendbuf,recvbuf)
+        call deallocate_buffers(sendbuf,recvbuf)
     end subroutine
 end submodule
