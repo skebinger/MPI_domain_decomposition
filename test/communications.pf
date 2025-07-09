@@ -1,0 +1,47 @@
+!> test/communications.pf
+module communications
+    use pfunit
+    use MOD_MPI_decomposition
+    implicit none
+
+    ! test parameters
+    integer, parameter, private :: m_xi=51
+    integer, parameter, private :: m_eta=101
+    integer, parameter, private :: m_var = 3
+    integer, parameter, private :: num_ghost = 10
+contains
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_min_max_scalar(this)
+        use mpi_f08
+        class (MpiTestMethod), intent(inout) :: this
+
+        type(MPI_Comm) :: comm
+        !type(MPI_Op) :: operator
+
+        integer :: p,size,ierr
+
+        double precision :: local_dp, max_dp, min_dp
+        integer :: local_int, max_int, min_int
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+        call MPI_COMM_SIZE(comm,size,ierr)
+
+        local_dp = p
+        local_int = p
+
+        call find_min_max_scalar(local_dp, max_dp, MPI_MAX, comm)
+        @assertEqual(size-1,max_dp)
+
+        call find_min_max_scalar(local_dp, min_dp, MPI_MIN, comm)
+        @assertEqual(0,min_dp)
+
+        call find_min_max_scalar(local_int, max_int, MPI_MAX, comm)
+        @assertEqual(size-1,max_int)
+
+        call find_min_max_scalar(local_int, min_int, MPI_MIN, comm)
+        @assertEqual(0,min_int)
+    end subroutine
+
+end module communications

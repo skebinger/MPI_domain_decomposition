@@ -33,7 +33,6 @@
 
 # Automatically created Directories
 /doc
-/mod
 /build*
 
 # IDE specific (e.g. vscode)

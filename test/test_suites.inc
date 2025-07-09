@@ -1,1 +1,3 @@
-ADD_TEST_SUITE(mytests_suite)
+ADD_TEST_SUITE(halo_exchange_test_2D_suite)
+ADD_TEST_SUITE(packing_unpacking_suite)
+ADD_TEST_SUITE(communications_suite)

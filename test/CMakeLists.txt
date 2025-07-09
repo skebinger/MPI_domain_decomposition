@@ -101,4 +101,4 @@ set_target_properties(pfunit_tests PROPERTIES
 )
 
 enable_testing()
-add_test(NAME pfunit_tests COMMAND mpirun -np 4 $<TARGET_FILE:pfunit_tests>)
+add_test(NAME pfunit_tests COMMAND mpirun -np 6 $<TARGET_FILE:pfunit_tests>)
