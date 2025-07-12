@@ -55,6 +55,41 @@ contains
             comm, MPI_STATUS_IGNORE, ierr)
     end subroutine
 
+    module subroutine send_recv_scalar_dp(sendbuf, recvbuf, rank_target, rank_origin, tag, comm)
+        !! Sends a 1D double precision array of data (`sendbuf`) from the calling rank to rank `rank_target`
+        !! and recieves from rank `rank_origin`. The recieved array `recvbuf` is returned.
+        !!
+        !! Either one of the communications (send/recieve) is only executed if the neighbouring rank
+        !! for this communication is a valid rank (=internal boundary).
+        double precision, allocatable ,intent(in) :: sendbuf        !! The buffer to be sent
+        double precision, allocatable, intent(inout) :: recvbuf     !! The expected recieve buffer
+        integer, intent(in) :: rank_target, rank_origin             !! The neighbouring ranks for the communication
+        integer, intent(in) :: tag                                  !! The communication tag
+        type(MPI_Comm), intent(in) :: comm                          !! MPI communicator
+
+        type(MPI_Datatype) :: MPI_SEND_TYPE = MPI_DOUBLE_PRECISION
+        integer :: count
+        integer :: rank, ierr
+
+        ! Check input for allocation status
+        if(.NOT.allocated(sendbuf)) then
+            call MPI_Comm_rank(comm,rank,ierr)
+            print *, "RANK ", rank, " reports: sendbuf not allocated in send_1D_array"
+            call MPI_Abort(comm, 1, ierr)
+        end if
+        if(.NOT.allocated(recvbuf)) then
+            call MPI_Comm_rank(comm,rank,ierr)
+            print *, "RANK ", rank, " reports: recvbuf not allocated in send_1D_array"
+            call MPI_Abort(comm, 1, ierr)
+        end if
+
+        count = 1
+
+        call MPI_Sendrecv(sendbuf, count, MPI_SEND_TYPE, rank_target, tag, &
+            recvbuf, count, MPI_SEND_TYPE, rank_origin, tag, &
+            comm, MPI_STATUS_IGNORE, ierr)
+    end subroutine
+
     module subroutine send_recv_1D_array_int(sendbuf, recvbuf, rank_target, rank_origin, tag, comm)
         !! Sends a 1D integer array of data (`sendbuf`) from the calling rank to rank `rank_target`
         !! and recieves from rank `rank_origin`. The recieved array `recvbuf` is returned.
@@ -86,6 +121,41 @@ contains
         l_bound = lbound(sendbuf,1)
         u_bound = ubound(sendbuf,1)
         count = u_bound-l_bound+1
+
+        call MPI_Sendrecv(sendbuf, count, MPI_SEND_TYPE, rank_target, tag, &
+            recvbuf, count, MPI_SEND_TYPE, rank_origin, tag, &
+            comm, MPI_STATUS_IGNORE, ierr)
+    end subroutine
+
+    module subroutine send_recv_scalar_int(sendbuf, recvbuf, rank_target, rank_origin, tag, comm)
+        !! Sends a 1D integer array of data (`sendbuf`) from the calling rank to rank `rank_target`
+        !! and recieves from rank `rank_origin`. The recieved array `recvbuf` is returned.
+        !!
+        !! Either one of the communications (send/recieve) is only executed if the neighbouring rank
+        !! for this communication is a valid rank (=internal boundary).
+        integer, allocatable ,intent(in) :: sendbuf                 !! The buffer to be sent
+        integer, allocatable, intent(inout) :: recvbuf              !! The expected recieve buffer
+        integer, intent(in) :: rank_target, rank_origin             !! The neighbouring ranks for the communication
+        integer, intent(in) :: tag                                  !! The communication tag
+        type(MPI_Comm), intent(in) :: comm                          !! MPI communicator
+
+        type(MPI_Datatype) :: MPI_SEND_TYPE = MPI_INTEGER
+        integer :: count
+        integer :: rank, ierr
+
+        ! Check input for allocation status
+        if(.NOT.allocated(sendbuf)) then
+            call MPI_Comm_rank(comm,rank,ierr)
+            print *, "RANK ", rank, " reports: sendbuf not allocated in send_1D_array"
+            call MPI_Abort(comm, 1, ierr)
+        end if
+        if(.NOT.allocated(recvbuf)) then
+            call MPI_Comm_rank(comm,rank,ierr)
+            print *, "RANK ", rank, " reports: recvbuf not allocated in send_1D_array"
+            call MPI_Abort(comm, 1, ierr)
+        end if
+
+        count = 1
 
         call MPI_Sendrecv(sendbuf, count, MPI_SEND_TYPE, rank_target, tag, &
             recvbuf, count, MPI_SEND_TYPE, rank_origin, tag, &

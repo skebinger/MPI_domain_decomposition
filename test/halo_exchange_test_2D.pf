@@ -25,7 +25,7 @@ contains
         p = this%getProcessRank()
         comm = this%getMpiCommunicator()
 
-        call initialize_decomposition(info,m_xi,m_eta,comm)
+        call initialize_decomposition(info,m_xi,m_eta,0,comm)
         call setup_cartesian_topology(info,comm)
 
         call get_local_block_bounds(info,ilo,ihi,jlo,jhi)
@@ -60,7 +60,7 @@ contains
         call get_local_block_bounds(info,ilo,ihi,jlo,jhi)
         comm_cart = get_cartesian_comm(info)
 
-        call exchange_halos_2D(info,dat2D,m_var,num_ghost,left,right,bottom,top,comm_cart)
+        call exchange_halos(info,dat2D,m_var,num_ghost,left,right,bottom,top,comm_cart)
 
         !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
         @assertEqual(p,dat2D(1:m_var,ilo:ihi,jlo:jhi))
@@ -88,7 +88,7 @@ contains
         call get_local_block_bounds(info,ilo,ihi,jlo,jhi)
         comm_cart = get_cartesian_comm(info)
 
-        call exchange_halos_2D(info,dat2D,m_var,num_ghost,left,right,bottom,top,comm_cart)
+        call exchange_halos(info,dat2D,m_var,num_ghost,left,right,bottom,top,comm_cart)
 
         !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
         if(left==MPI_PROC_NULL)then
@@ -138,7 +138,7 @@ contains
         call get_local_block_bounds(info,ilo,ihi,jlo,jhi)
         comm_cart = get_cartesian_comm(info)
 
-        call exchange_halos_2D(info,dat2D,m_var,num_ghost,left,right,bottom,top,comm_cart)
+        call exchange_halos(info,dat2D,m_var,num_ghost,left,right,bottom,top,comm_cart)
 
         !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
         if(left/=MPI_PROC_NULL)then

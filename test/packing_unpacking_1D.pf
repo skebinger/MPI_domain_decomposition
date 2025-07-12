@@ -1,0 +1,136 @@
+!> test/packing_unpacking_1D.pf
+module packing_unpacking_1D
+    use pfunit
+    use MOD_MPI_decomposition
+    implicit none
+
+    ! test parameters
+    integer, parameter, private :: m_xi=11
+    integer, parameter, private :: m_var = 3
+    integer, parameter, private :: num_ghost = 2
+contains
+
+    subroutine setup_field(this,info,dat1D)
+        class (MpiTestMethod), intent(inout) :: this
+        type(decomp_info), intent(out) :: info
+        double precision, allocatable, intent(inout) :: dat1D(:,:)
+
+        type(MPI_Comm) :: comm
+
+        integer :: p
+        integer :: ilo,ihi
+        integer :: left,right,bottom,top
+        integer :: i,j,var,counter
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call initialize_decomposition(info,m_xi,0,0,comm)
+        call setup_cartesian_topology(info,comm)
+
+        call get_local_block_bounds(info,ilo,ihi)
+        allocate(dat1D(m_var,ilo-num_ghost:ihi+num_ghost))
+
+        counter = 0
+        do i=ilo-num_ghost,ihi+num_ghost
+            do var=1,m_var
+                counter = counter + 1
+                dat1D(var,i) = var*1000+counter
+            end do
+        end do
+
+    end subroutine
+
+    subroutine free_all(this,dat1D)
+        class (MpiTestMethod), intent(inout) :: this
+        double precision, allocatable, intent(inout) :: dat1D(:,:)
+        deallocate(dat1D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_packing_1D_i_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat1D(:,:)
+
+        integer :: p
+        integer :: left,right
+        integer :: ilo,ihi
+        integer :: var,layer,i,j
+        integer :: num_j,counter,lb,ub
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat1D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi)
+        call allocate_buffers(sendbuf,recvbuf,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat1D))
+
+        do i=ilo,ihi
+            call pack_i_index(dat1D,sendbuf,i,m_var,comm)
+            do var=1,m_var
+                counter = counter +1
+                @assertEqual(dat1D(var,i),sendbuf(counter))
+            end do
+            counter = 0
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat1D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_unpacking_1D_i_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat1D(:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi
+        integer :: var,layer,i,j
+        integer :: num_j,counter,lb,ub
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat1D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi)
+        call allocate_buffers(sendbuf,recvbuf,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat1D))
+
+        do i=1,m_var
+            counter = counter+1
+            sendbuf(counter) = counter
+        end do
+        counter = 0
+
+        do i=ilo,ihi
+            call unpack_i_index(dat1D,sendbuf,i,m_var,comm)
+            do var=1,m_var
+                counter = counter +1
+                call assertEqual(counter,dat1D(var,i))
+            end do
+            counter = 0
+        end do
+
+
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat1D)
+    end subroutine
+
+end module

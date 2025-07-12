@@ -1,0 +1,147 @@
+!> test/halo_exchange_test_1D.pf
+module halo_exchange_test_1D
+    use pfunit
+    use MOD_MPI_decomposition
+    implicit none
+
+    ! test parameters
+    integer, parameter, private :: m_xi=51
+    integer, parameter, private :: m_eta=1
+    integer, parameter, private :: m_var = 4
+    integer, parameter, private :: num_ghost = 2
+contains
+
+    subroutine setup_field(this,info,dat1D)
+        class (MpiTestMethod), intent(inout) :: this
+        type(decomp_info), intent(inout) :: info
+        double precision, allocatable, intent(inout) :: dat1D(:,:)
+
+        type(MPI_Comm) :: comm
+
+        integer :: p
+        integer :: ilo,ihi
+        integer :: left,right
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call initialize_decomposition(info,m_xi,0,0,comm)
+        call setup_cartesian_topology(info,comm)
+
+        call get_local_block_bounds(info,ilo,ihi)
+        allocate(dat1D(m_var,ilo-num_ghost:ihi+num_ghost))
+        dat1D=p
+
+    end subroutine
+
+    subroutine free_all(this,dat1D)
+        class (MpiTestMethod), intent(inout) :: this
+        double precision, allocatable, intent(inout) :: dat1D(:,:)
+        deallocate(dat1D)
+    end subroutine
+
+    @test( npes=[1,2,3,4,5,6])
+    subroutine test_internal_field(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat1D(:,:)
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi
+        integer :: var,layer,i,j
+
+        call setup_field(this,info,dat1D)
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call get_neighbouring_ranks(info,left,right)
+        call get_local_block_bounds(info,ilo,ihi)
+        comm_cart = get_cartesian_comm(info)
+
+        call exchange_halos(info,dat1D,m_var,num_ghost,left,right,comm_cart)
+
+        !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
+        @assertEqual(p,dat1D(1:m_var,ilo:ihi))
+
+        call free_all(this,dat1D)
+    end subroutine test_internal_field
+
+    @test( npes=[1,2,3,4,5,6])
+    subroutine test_for_unaltered_ghost(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat1D(:,:)
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi
+        integer :: var,layer,i
+
+        call setup_field(this,info,dat1D)
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call get_neighbouring_ranks(info,left,right)
+        call get_local_block_bounds(info,ilo,ihi)
+        comm_cart = get_cartesian_comm(info)
+
+        call exchange_halos(info,dat1D,m_var,num_ghost,left,right,comm_cart)
+
+        !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
+        if(left==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat1D(1:m_var,ilo-layer))
+            end do
+        end if
+
+        if(right==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat1D(1:m_var,ihi+layer))
+            end do
+        end if
+
+        call free_all(this,dat1D)
+    end subroutine test_for_unaltered_ghost
+
+    @test( npes=[1,2,3,4,5,6])
+    subroutine test_halo_exchange(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat1D(:,:)
+        integer :: p
+        integer :: left,right
+        integer :: ilo,ihi
+        integer :: var,layer,i
+
+        call setup_field(this,info,dat1D)
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call get_neighbouring_ranks(info,left,right)
+        call get_local_block_bounds(info,ilo,ihi)
+        comm_cart = get_cartesian_comm(info)
+
+        call exchange_halos(info,dat1D,m_var,num_ghost,left,right,comm_cart)
+
+        !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
+        if(left/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(left,dat1D(1:m_var,ilo-layer))
+            end do
+        end if
+
+        if(right/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(right,dat1D(1:m_var,ihi+layer))
+            end do
+        end if
+
+        call free_all(this,dat1D)
+    end subroutine test_halo_exchange
+
+end module halo_exchange_test_1D

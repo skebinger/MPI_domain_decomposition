@@ -1,0 +1,196 @@
+!> test/halo_exchange_test_3D.pf
+module halo_exchange_test_3D
+    use pfunit
+    use MOD_MPI_decomposition
+    implicit none
+
+    ! test parameters
+    integer, parameter, private :: m_xi=21
+    integer, parameter, private :: m_eta=21
+    integer, parameter, private :: m_tau=21
+    integer, parameter, private :: m_var = 3
+    integer, parameter, private :: num_ghost = 2
+contains
+
+    subroutine setup_field(this,info,dat3D)
+        class (MpiTestMethod), intent(inout) :: this
+        type(decomp_info), intent(inout) :: info
+        double precision, allocatable, intent(inout) :: dat3D(:,:,:,:)
+
+        type(MPI_Comm) :: comm
+
+        integer :: p
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: left,right,bottom,top,back,front
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call initialize_decomposition(info,m_xi,m_eta,m_tau,comm)
+        call setup_cartesian_topology(info,comm)
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        allocate(dat3D(m_var,ilo-num_ghost:ihi+num_ghost,jlo-num_ghost:jhi+num_ghost,klo-num_ghost:khi+num_ghost))
+        dat3D=p
+
+    end subroutine
+
+    subroutine free_all(this,dat3D)
+        class (MpiTestMethod), intent(inout) :: this
+        double precision, allocatable, intent(inout) :: dat3D(:,:,:,:)
+        deallocate(dat3D)
+    end subroutine
+
+    @test( npes=[1,2,3,4,5,6,7,8])
+    subroutine test_internal_field(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+        integer :: p
+        integer :: left,right,bottom,top,back,front
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j
+
+        call setup_field(this,info,dat3D)
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call get_neighbouring_ranks(info,left,right,bottom,top,back,front)
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        comm_cart = get_cartesian_comm(info)
+
+        call exchange_halos(info,dat3D,m_var,num_ghost,left,right,bottom,top,back,front,comm_cart)
+
+        !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
+        @assertEqual(p,dat3D(1:m_var,ilo:ihi,jlo:jhi,klo:khi))
+
+        call free_all(this,dat3D)
+    end subroutine test_internal_field
+
+    @test( npes=[1,2,3,4,5,6,7,8])
+    subroutine test_for_unaltered_ghost(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+        integer :: p
+        integer :: left,right,bottom,top,back,front
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j
+
+        call setup_field(this,info,dat3D)
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call get_neighbouring_ranks(info,left,right,bottom,top,back,front)
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        comm_cart = get_cartesian_comm(info)
+
+        call exchange_halos(info,dat3D,m_var,num_ghost,left,right,bottom,top,back,front,comm_cart)
+
+        !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
+        if(left==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat3D(1:m_var,ilo-layer,jlo:jhi,klo:khi))
+            end do
+        end if
+
+        if(right==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat3D(1:m_var,ihi+layer,jlo:jhi,klo:khi))
+            end do
+        end if
+
+        if(top==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat3D(1:m_var,ilo:ihi,jhi+layer,klo:khi))
+            end do
+        end if
+
+        if(bottom==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat3D(1:m_var,ilo:ihi,jlo-layer,klo:khi))
+            end do
+        end if
+
+        if(back==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat3D(1:m_var,ilo:ihi,jlo:jhi,klo-layer))
+            end do
+        end if
+
+        if(front==MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(p,dat3D(1:m_var,ilo:ihi,jlo:jhi,klo+layer))
+            end do
+        end if
+
+        call free_all(this,dat3D)
+    end subroutine test_for_unaltered_ghost
+
+    @test( npes=[1,2,3,4,5,6,7,8])
+    subroutine test_halo_exchange(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+        integer :: p
+        integer :: left,right,bottom,top,back,front
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j
+
+        call setup_field(this,info,dat3D)
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call get_neighbouring_ranks(info,left,right,bottom,top,back,front)
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        comm_cart = get_cartesian_comm(info)
+
+        call exchange_halos(info,dat3D,m_var,num_ghost,left,right,bottom,top,back,front,comm_cart)
+
+        !since every rank contains its rank index as data content, check if the new ghost cell entries match that neighbouring rank
+        if(left/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(left,dat3D(1:m_var,ilo-layer,jlo:jhi,klo:khi))
+            end do
+        end if
+
+        if(right/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(right,dat3D(1:m_var,ihi+layer,jlo:jhi,klo:khi))
+            end do
+        end if
+
+        if(top/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(top,dat3D(1:m_var,ilo:ihi,jhi+layer,klo:khi))
+            end do
+        end if
+
+        if(bottom/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(bottom,dat3D(1:m_var,ilo:ihi,jlo-layer,klo:khi))
+            end do
+        end if
+
+        if(back/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(back,dat3D(1:m_var,ilo:ihi,jlo:jhi,klo-layer))
+            end do
+        end if
+
+        if(front/=MPI_PROC_NULL)then
+            do layer=1,num_ghost
+                @assertEqual(front,dat3D(1:m_var,ilo:ihi,jlo:jhi,khi+layer))
+            end do
+        end if
+
+        call free_all(this,dat3D)
+    end subroutine test_halo_exchange
+
+end module halo_exchange_test_3D

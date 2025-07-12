@@ -1,0 +1,338 @@
+!> test/packing_unpacking_3D.pf
+module packing_unpacking_3D
+    use pfunit
+    use MOD_MPI_decomposition
+    implicit none
+
+    ! test parameters
+    integer, parameter, private :: m_xi=11
+    integer, parameter, private :: m_eta=11
+    integer, parameter, private :: m_tau=14
+    integer, parameter, private :: m_var = 3
+    integer, parameter, private :: num_ghost = 2
+contains
+
+    subroutine setup_field(this,info,dat3D)
+        class (MpiTestMethod), intent(inout) :: this
+        type(decomp_info), intent(out) :: info
+        double precision, allocatable, intent(inout) :: dat3D(:,:,:,:)
+
+        type(MPI_Comm) :: comm
+
+        integer :: p
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: left,right,bottom,top
+        integer :: i,j,k,var,counter
+
+        p = this%getProcessRank()
+        comm = this%getMpiCommunicator()
+
+        call initialize_decomposition(info,m_xi,m_eta,m_tau,comm)
+        call setup_cartesian_topology(info,comm)
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        allocate(dat3D(m_var,ilo-num_ghost:ihi+num_ghost,jlo-num_ghost:jhi+num_ghost,klo-num_ghost:khi+num_ghost))
+
+        counter = 0
+        do k=klo-num_ghost,khi+num_ghost
+            do j=jlo-num_ghost,jhi+num_ghost
+                do i=ilo-num_ghost,ihi+num_ghost
+                    do var=1,m_var
+                        counter = counter + 1
+                        dat3D(var,i,j,k) = var*1000+counter
+                    end do
+                end do
+            end do
+        end do
+
+    end subroutine
+
+    subroutine free_all(this,dat3D)
+        class (MpiTestMethod), intent(inout) :: this
+        double precision, allocatable, intent(inout) :: dat3D(:,:,:,:)
+        deallocate(dat3D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_packing_3D_i_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j,k
+        integer :: counter
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat3D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        call allocate_buffers(sendbuf,recvbuf,jlo,jhi,klo,khi,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat3D))
+
+        do i=ilo,ihi
+            counter = 0
+            call pack_i_index(dat3D,sendbuf,i,m_var,jlo,jhi,klo,khi,comm)
+            do k=klo,khi
+                do j=jlo,jhi
+                    do var=1,m_var
+                        counter = counter +1
+                        @assertEqual(dat3D(var,i,j,k),sendbuf(counter))
+                    end do
+                end do
+            end do
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat3D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_unpacking_3D_i_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j,k
+        integer :: counter,ub
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat3D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        call allocate_buffers(sendbuf,recvbuf,jlo,jhi,klo,khi,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat3D))
+
+        ub=ubound(sendbuf,1)
+
+        do i=1,ub
+            counter = counter+1
+            sendbuf(counter) = counter
+        end do
+        counter = 0
+
+        do i=ilo,ihi
+            counter = 0
+            call unpack_i_index(dat3D,sendbuf,i,m_var,jlo,jhi,klo,khi,comm)
+            do k=klo,khi
+                do j=jlo,jhi
+                    do var=1,m_var
+                        counter = counter +1
+                        call assertEqual(counter,dat3D(var,i,j,k))
+                    end do
+                end do
+            end do
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat3D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_packing_3D_j_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j,k
+        integer :: counter
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat3D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        call allocate_buffers(sendbuf,recvbuf,ilo,ihi,klo,khi,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat3D))
+
+        do j=jlo,jhi
+            counter = 0
+            call pack_j_index(dat3D,sendbuf,j,m_var,ilo,ihi,klo,khi,comm)
+            do k=klo,khi
+                do i=ilo,ihi
+                    do var=1,m_var
+                        counter = counter +1
+                        @assertEqual(dat3D(var,i,j,k),sendbuf(counter))
+                    end do
+                end do
+            end do
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat3D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_unpacking_3D_j_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j,k
+        integer :: counter,ub
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat3D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        call allocate_buffers(sendbuf,recvbuf,ilo,ihi,klo,khi,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat3D))
+
+        ub=ubound(sendbuf,1)
+
+        do i=1,ub
+            counter = counter+1
+            sendbuf(counter) = counter
+        end do
+        counter = 0
+
+        do j=jlo,jhi
+            counter = 0
+            call unpack_j_index(dat3D,sendbuf,j,m_var,ilo,ihi,klo,khi,comm)
+            do k=klo,khi
+                do i=ilo,ihi
+                    do var=1,m_var
+                        counter = counter +1
+                        call assertEqual(counter,dat3D(var,i,j,k))
+                    end do
+                end do
+            end do
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat3D)
+    end subroutine
+
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_packing_3D_k_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j,k
+        integer :: counter
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat3D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        call allocate_buffers(sendbuf,recvbuf,ilo,ihi,jlo,jhi,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat3D))
+
+        do k=klo,khi
+            counter = 0
+            call pack_k_index(dat3D,sendbuf,k,m_var,ilo,ihi,jlo,jhi,comm)
+            do j=jlo,jhi
+                do i=ilo,ihi
+                    do var=1,m_var
+                        counter = counter +1
+                        @assertEqual(dat3D(var,i,j,k),sendbuf(counter))
+                    end do
+                end do
+            end do
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat3D)
+    end subroutine
+
+    @Test( npes=[1,2,3,4,5,6])
+    subroutine test_unpacking_3D_k_index(this)
+        class (MpiTestMethod), intent(inout) :: this
+        type(MPI_Comm) :: comm, comm_cart
+        type(decomp_info) :: info
+        double precision, allocatable :: dat3D(:,:,:,:)
+
+        integer :: p
+        integer :: left,right,bottom,top
+        integer :: ilo,ihi,jlo,jhi,klo,khi
+        integer :: var,layer,i,j,k
+        integer :: counter,ub
+        double precision, allocatable :: sendbuf(:), recvbuf(:)
+
+        call setup_field(this,info,dat3D)
+
+        counter=0
+        comm = this%getMpiCommunicator()
+
+        call get_local_block_bounds(info,ilo,ihi,jlo,jhi,klo,khi)
+        call allocate_buffers(sendbuf,recvbuf,ilo,ihi,jlo,jhi,m_var)
+
+        @assertTrue(allocated(sendbuf))
+        @assertTrue(allocated(dat3D))
+
+        ub=ubound(sendbuf,1)
+
+        do i=1,ub
+            counter = counter+1
+            sendbuf(counter) = counter
+        end do
+        counter = 0
+
+        do k=klo,khi
+            counter = 0
+            call unpack_k_index(dat3D,sendbuf,k,m_var,ilo,ihi,jlo,jhi,comm)
+            do j=jlo,jhi
+                do i=ilo,ihi
+                    do var=1,m_var
+                        counter = counter +1
+                        call assertEqual(counter,dat3D(var,i,j,k))
+                    end do
+                end do
+            end do
+        end do
+
+        call deallocate_buffers(sendbuf,recvbuf)
+
+        call free_all(this,dat3D)
+    end subroutine
+end module

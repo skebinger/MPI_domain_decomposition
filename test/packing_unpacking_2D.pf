@@ -1,5 +1,5 @@
-!> test/packing_unpacking.pf
-module packing_unpacking
+!> test/packing_unpacking_2D.pf
+module packing_unpacking_2D
     use pfunit
     use MOD_MPI_decomposition
     implicit none
@@ -26,7 +26,7 @@ contains
         p = this%getProcessRank()
         comm = this%getMpiCommunicator()
 
-        call initialize_decomposition(info,m_xi,m_eta,comm)
+        call initialize_decomposition(info,m_xi,m_eta,0,comm)
         call setup_cartesian_topology(info,comm)
 
         call get_local_block_bounds(info,ilo,ihi,jlo,jhi)
@@ -51,7 +51,7 @@ contains
     end subroutine
 
     @Test( npes=[1,2,3,4,5,6])
-    subroutine test_packing_2D_jslice(this)
+    subroutine test_packing_2D_i_index(this)
         class (MpiTestMethod), intent(inout) :: this
         type(MPI_Comm) :: comm, comm_cart
         type(decomp_info) :: info
@@ -81,7 +81,7 @@ contains
         num_j = jhi - jlo + 1
 
         do i=ilo,ihi
-            call pack_2d_jslice(dat2D,sendbuf,i,m_var,jlo,jhi,comm)
+            call pack_2d_i_index(dat2D,sendbuf,i,m_var,jlo,jhi,comm)
             do var=1,m_var
                 do j=jlo,jhi
                     counter = counter +1
@@ -98,7 +98,7 @@ contains
     end subroutine
 
     @Test( npes=[1,2,3,4,5,6])
-    subroutine test_unpacking_2D_jslice(this)
+    subroutine test_unpacking_2D_i_index(this)
         class (MpiTestMethod), intent(inout) :: this
         type(MPI_Comm) :: comm, comm_cart
         type(decomp_info) :: info
@@ -134,7 +134,7 @@ contains
         counter = 0
 
         do i=ilo,ihi
-            call unpack_2d_jslice(dat2D,sendbuf,i,m_var,jlo,jhi,comm)
+            call unpack_i_index(dat2D,sendbuf,i,m_var,jlo,jhi,comm)
             do var=1,m_var
                 do j=jlo,jhi
                     counter = counter +1
@@ -151,7 +151,7 @@ contains
     end subroutine
 
     @Test( npes=[1,2,3,4,5,6])
-    subroutine test_packing_2D_islice(this)
+    subroutine test_packing_2D_j_index(this)
         class (MpiTestMethod), intent(inout) :: this
         type(MPI_Comm) :: comm, comm_cart
         type(decomp_info) :: info
@@ -176,7 +176,7 @@ contains
         num_i = ihi - ilo + 1
 
         do j=jlo,jhi
-            call pack_2d_islice(dat2D,sendbuf,j,m_var,ilo,ihi,comm)
+            call pack_j_index(dat2D,sendbuf,j,m_var,ilo,ihi,comm)
             do var=1,m_var
                 do i=ilo,ihi
                     counter = counter +1
@@ -193,7 +193,7 @@ contains
     end subroutine
 
     @Test( npes=[1,2,3,4,5,6])
-    subroutine test_unpacking_2D_islice(this)
+    subroutine test_unpacking_2D_j_index(this)
         class (MpiTestMethod), intent(inout) :: this
         type(MPI_Comm) :: comm, comm_cart
         type(decomp_info) :: info
@@ -229,7 +229,7 @@ contains
         counter = 0
 
         do j=jlo,jhi
-            call unpack_2d_islice(dat2D,sendbuf,j,m_var,ilo,ihi,comm)
+            call unpack_j_index(dat2D,sendbuf,j,m_var,ilo,ihi,comm)
             do var=1,m_var
                 do i=ilo,ihi
                     counter = counter +1
