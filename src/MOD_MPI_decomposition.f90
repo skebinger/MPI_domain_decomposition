@@ -20,24 +20,24 @@
 ! ================================================================= !
 
 module MOD_MPI_decomposition
-    !! (so far 2D) block domain decomposition for MPI-based structured grid solvers.
+    !! Block domain decomposition for MPI-based structured grid solvers in 1, 2 and 3 
+    !! spatial dimensions.
     !!
-    !! This module handles a static 2D block decomposition using MPI. Each MPI rank
-    !! owns a rectangular subdomain (i,j) of the global mesh. Ghost cells are not
-    !! included in the decomposition ranges and must be handled externally.
+    !! This library handles a static block decomposition using MPI. Each MPI rank
+    !! owns a rectangular subdomain `(i)`, `(i,j)` or `(i,j,k)` of the global mesh. Ghost cells
+    !! are not included in the decomposition index ranges and must be accounted for externally.
     !! Each rank is assigned a portion of the global index range. These ensure
     !! continuous field indizes across ranks without the need to calculate a global
     !! index.
     !!
     !! The decomposition info is stored in a type `decomp_info`.
     !!
-    !! Setup might be updated some day to also include sliced layout. Currently
-    !! only chunked decomposition is supported.
+    !! Setup might be updated some day to also include user defined sliced layout. Currently
+    !! only (automatic) chunked decomposition is supported.
     !!
-    !! All sweep directions (xi and eta) operate over the same local block.
+    !! All sweep directions (xi, eta and tau) operate over the same local block.
     !!
-    !! Features to be added: 3D decomposition; load balancing?
-    !! Save allocation/deallocation (check for already allocated status etc.) => through errors
+    !! Features to be added: load balancing? more detailed tests for allocation status etc.
 
     use mpi_f08
     implicit none
@@ -67,8 +67,6 @@ module MOD_MPI_decomposition
         procedure :: print_cartesian_rank_layout
         !output to disk:
         procedure :: write_decom_to_disk
-        !halo exchange:
-        !procedure :: exchange_halos
         !getters:
         procedure :: get_local_block_bounds
         procedure :: get_cartesian_comm

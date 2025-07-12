@@ -18,17 +18,18 @@
 
 # Usage:
 # ./makeall.sh [BuildType] [SharedLib ON/OFF] [MPIFLAVOR] [BuildLib ON/OFF] [BuildTest ON/OFF]
-# BuildType : Test, Debug, Release
+# BuildType : Test, Debug, Release (=intended build type for use)
 # SharedLib : decides if a static or shared library is created on output
-# So far: Testing is restricted to a static lib
+# So far: Testing is restricted to a static library and compilation might fail for shared
 # MPIFLAVOUR : intelmpi, openmpi or a mpi implementation of your choice given you change and
 # ammend the cmake extensions in ./config
 # BuildLib : On current pass build the lib or not
 # BuildTest : On current pass build the testing environment; requires library to be build previously
 # -> envoke tests (if compiled) in ./build_test with command <ctest>
 # Example:
-# ./makeall.sh Debug OFF openmpi ON ON
-# ./makeall.sh Test OFF intelmpi ON ON
+# ./makeall.sh Debug OFF openmpi ON OFF -> to compile without tests but debugging flags with intelmpi
+# ./makeall.sh Test OFF intelmpi ON ON -> to compile with testing (requires pFUnit) with intelmpi
+# ./makeall.sh Release OFF openmpi ON OFF -> to compile with testing (requires pFUnit) with openmpi
 
 BUILD_TYPE=${1:-Debug}
 BUILD_SHARED=${2:-OFF}
