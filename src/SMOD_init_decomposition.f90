@@ -298,7 +298,7 @@ contains
 
         write(rank_str, '(I0)') rank
         ! Write decomposition to disk
-        call execute_command_line("mkdir -p ./output",.TRUE.,exitstat,cmdstat)
+        call execute_command_line("mkdir -p output",.TRUE.,exitstat,cmdstat)
         open(unit=1,file=adjustl('output/domain_rank_' // trim(rank_str)//'.dat'),status='unknown',form='formatted')
         write(1,*) rank
         write(1,*) info%ilow
