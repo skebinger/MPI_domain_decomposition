@@ -49,7 +49,7 @@ Compiler flags and MPI settings are managed via dedicated CMake extension files 
 
 ### 🔧 Example
 
-To compile a **static** library **without tests**, using **Release** flags:
+To compile a **static** library **without tests**, using **Release** flags and **OpenMPI**:
 
 ```bash
-./makeall.sh Release OFF ON OFF
+./makeall.sh Release OFF openmpi ON OFF
