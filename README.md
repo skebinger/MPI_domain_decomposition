@@ -53,3 +53,17 @@ To compile a **static** library **without tests**, using **Release** flags and *
 
 ```bash
 ./makeall.sh Release OFF openmpi ON OFF
+```
+
+To compile the same **with tests** :
+
+```bash
+./makeall.sh Release OFF openmpi ON ON
+```
+
+The tests are located in the directory `./test` and may be executed, after building with appropriate options, with
+```bash
+cd build_test
+ctest -V
+```
+The output of the library, e.g. to console, is tested with a simple driver program in `./test_output`.
