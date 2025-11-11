@@ -35,7 +35,7 @@ Whether you're new to MPI or developing a scalable parallel solver, `mpidcl` off
 
 > **Note:**  
 > A setup script `install_pfUnit_MPI.sh` is provided under `./test` to install **pFUnit** using your chosen MPI implementation (currently Intel MPI or OpenMPI).
-> The project uses **FORD** for generating documentation from the proved code. I can be easily installed via pip. For more detailed installation instructions please visit the respective repository page.
+> The project uses **FORD** for generating documentation from the provided code. I can be easily installed via pip. For more detailed installation instructions please visit the respective repository page.
 
 ---
 
