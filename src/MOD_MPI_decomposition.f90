@@ -78,7 +78,7 @@ module MOD_MPI_decomposition
     ! setup and initialization
     !=======================================================================================================!
     interface
-        module subroutine initialize_decomposition(info, m_xi, m_eta, m_tau, comm)
+        module subroutine initialize_decomposition(info, m_xi, m_eta, m_tau, comm, udf_dims)
             !! Initializes the domain decomposition for a N-dimensional grid using MPI.
             !!
             !! The decomposition supports 1D, 2D, and 3D domain partitioning depending on the
@@ -105,6 +105,7 @@ module MOD_MPI_decomposition
             !! - m_eta: Total number of cells in the j-direction (eta-axis). 0 = inactive.
             !! - m_tau: Total number of cells in the k-direction (tau-axis). 0 = inactive.
             !! - comm: MPI communicator over which ranks are defined.
+            !! - udf_dims: An optional user defined (udf) processor grid layout.
             !!
             !! Output (module private variables set):
             !! - ilow, ihigh: Local i-direction bounds (inclusive).
@@ -115,6 +116,7 @@ module MOD_MPI_decomposition
             integer, intent(in) :: m_eta                   !! Total number of cells in the j-direction (eta-axis)
             integer, intent(in) :: m_tau                   !! Total number of cells in the k-direction (tau-axis)
             type(MPI_Comm), intent(in) :: comm             !! MPI communicator (normally 'MPI_COMM_WORLD')
+            integer, intent(in), optional :: udf_dims(3)   !! A user defined processor grid (optional)
         end subroutine
 
         module subroutine setup_cartesian_topology(info, comm_in)

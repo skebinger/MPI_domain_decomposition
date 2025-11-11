@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Use the same MPI flavor option as parent or define again
-set(MPIFLAVOR "intelmpi" CACHE STRING "MPI flavor: intelmpi or openmpi")
+set(MPIFLAVOR "openmpi" CACHE STRING "MPI flavor: intelmpi or openmpi")
 
 # Pick Fortran compiler early, before project()
 if(MPIFLAVOR STREQUAL "intelmpi")
     set(CMAKE_Fortran_COMPILER "mpiifx" CACHE STRING "Intel MPI Fortran compiler" FORCE)
     set(CMAKE_C_COMPILER "mpiicx" CACHE STRING "Intel MPI C compiler" FORCE)
 elseif(MPIFLAVOR STREQUAL "openmpi")
-    set(CMAKE_Fortran_COMPILER "mpif90" CACHE STRING "Open MPI Fortran compiler" FORCE)
+    set(CMAKE_Fortran_COMPILER "mpifort" CACHE STRING "Open MPI Fortran compiler" FORCE)
     set(CMAKE_C_COMPILER "mpicc" CACHE STRING "Open MPI C compiler" FORCE)
 else()
     message(FATAL_ERROR "Unsupported MPIFLAVOR: ${MPIFLAVOR}. Supported: intelmpi, openmpi")

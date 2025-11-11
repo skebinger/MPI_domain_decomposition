@@ -22,6 +22,14 @@ program test_decomposition_driver
 
     call MPI_Barrier(comm)
 
+    if (rank == 0) print *, "=== 1D Decomposition but with userdefined processor grid ==="
+    call initialize_decomposition(info, m_xi=16, m_eta=0,  m_tau=0, udf_dims=[8,0,0],  comm=comm)
+    call setup_cartesian_topology(info, comm)
+    call print_decomposition_summary(info, comm)
+    call print_cartesian_rank_layout(info)
+
+    call MPI_Barrier(comm)
+
     ! ---- CASE 2: 2D decomposition ----
     if (rank == 0) print *, "=== 2D Decomposition ==="
     call initialize_decomposition(info, m_xi=16, m_eta=12, m_tau=0,  comm=comm)
@@ -31,12 +39,45 @@ program test_decomposition_driver
 
     call MPI_Barrier(comm)
 
-    ! ---- CASE 3: 3D decomposition ----
-    if (rank == 0) print *, "=== 3D Decomposition ==="
-    call initialize_decomposition(info, m_xi=16, m_eta=12, m_tau=8,  comm=comm)
+    if (rank == 0) print *, "=== 2D Decomposition but with userdefined processor grid ==="
+    call initialize_decomposition(info, m_xi=16, m_eta=12, m_tau=0, udf_dims=[2,4,0],  comm=comm)
     call setup_cartesian_topology(info, comm)
     call print_decomposition_summary(info, comm)
     call print_cartesian_rank_layout(info)
+
+    call MPI_Barrier(comm)
+
+    call initialize_decomposition(info, m_xi=16, m_eta=12, m_tau=0, udf_dims=[1,8,0],  comm=comm)
+    call setup_cartesian_topology(info, comm)
+    call print_decomposition_summary(info, comm)
+    call print_cartesian_rank_layout(info)
+
+    call MPI_Barrier(comm)
+
+    ! ---- CASE 3: 3D decomposition ----
+    if (rank == 0) print *, "=== 3D Decomposition ==="
+    call initialize_decomposition(info, m_xi=16, m_eta=79, m_tau=8,  comm=comm)
+    call setup_cartesian_topology(info, comm)
+    call print_decomposition_summary(info, comm)
+    call print_cartesian_rank_layout(info)
+
+    call MPI_Barrier(comm)
+
+    if (rank == 0) print *, "=== 3D Decomposition but with userdefined processor grid ==="
+    call initialize_decomposition(info, m_xi=24, m_eta=12, m_tau=9, udf_dims=[1,4,2],  comm=comm)
+    call setup_cartesian_topology(info, comm)
+    call print_decomposition_summary(info, comm)
+    call print_cartesian_rank_layout(info)
+
+    call MPI_Barrier(comm)
+
+    call initialize_decomposition(info, m_xi=13, m_eta=12, m_tau=8, udf_dims=[1,2,4],  comm=comm)
+    call setup_cartesian_topology(info, comm)
+    call print_decomposition_summary(info, comm)
+    call print_cartesian_rank_layout(info)
+
+
+    if (rank == 0) print *, "=== OUTPUT TEST COMPLETED ==="
 
     ! Finalize MPI
     call MPI_Finalize(ierr)

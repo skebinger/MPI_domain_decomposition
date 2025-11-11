@@ -19,7 +19,7 @@ submodule(MOD_MPI_decomposition) SMOD_init_decomposition
     implicit none
 contains
 
-    module subroutine initialize_decomposition(info, m_xi, m_eta, m_tau, comm)
+    module subroutine initialize_decomposition(info, m_xi, m_eta, m_tau, comm, udf_dims)
         !! Initializes the domain decomposition for a N-dimensional grid using MPI.
         !!
         !! The decomposition supports 1D, 2D, and 3D domain partitioning depending on the
@@ -46,6 +46,7 @@ contains
         !! - m_eta: Total number of cells in the j-direction (eta-axis). 0 = inactive.
         !! - m_tau: Total number of cells in the k-direction (tau-axis). 0 = inactive.
         !! - comm: MPI communicator over which ranks are defined.
+        !! - udf_dims: An optional user defined (udf) processor grid layout.
         !!
         !! Output (module private variables set):
         !! - ilow, ihigh: Local i-direction bounds (inclusive).
@@ -56,6 +57,7 @@ contains
         integer, intent(in) :: m_eta                   !! Total number of cells in the j-direction (eta-axis)
         integer, intent(in) :: m_tau                   !! Total number of cells in the k-direction (tau-axis)
         type(MPI_Comm), intent(in) :: comm             !! MPI communicator (normally 'MPI_COMM_WORLD')
+        integer, intent(in), optional :: udf_dims(3)   !! A user defined processor grid (optional)
 
         ! Internal variables
         integer :: rank, size, ierr
@@ -92,11 +94,16 @@ contains
         global_cells = (/ m_xi, m_eta, m_tau /)
 
         if (rank == 0) then
-            ! Initialize processor grid dimensions to zero
-            info%dims = 0
+            ! Provides option to manually set the processor grid layout
+            if(present(udf_dims))then
+                info%dims = udf_dims
+            else
+                ! Initialize processor grid dimensions to zero
+                info%dims = 0
 
-            ! Compute processor grid layout using MPI_Dims_create for active dimensions
-            call MPI_Dims_create(size, ndim, info%dims, ierr)
+                ! Compute processor grid layout using MPI_Dims_create for active dimensions
+                call MPI_Dims_create(size, ndim, info%dims, ierr)
+            end if
 
             ! Set number of processors in each direction (1 for inactive directions)
             i_procs = merge(info%dims(1), 1, m_xi >= 1)
