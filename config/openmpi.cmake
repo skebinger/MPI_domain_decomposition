@@ -26,6 +26,7 @@ else()
         -cpp
         -Wall
         -Wextra
+	    -pedantic
         -Wno-c-binding-type
 	    -ffree-line-length-0
     )

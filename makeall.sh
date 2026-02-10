@@ -29,12 +29,12 @@
 # Example:
 # ./makeall.sh Debug OFF openmpi ON OFF -> to compile without tests but debugging flags with intelmpi
 # ./makeall.sh Test OFF intelmpi ON ON -> to compile with testing (requires pFUnit) with intelmpi
-# ./makeall.sh Release OFF openmpi ON OFF -> to compile with testing (requires pFUnit) with openmpi
+# ./makeall.sh Release OFF openmpi ON OFF -> to compile without testing with openmpi
 
-BUILD_TYPE=${1:-Debug}
+BUILD_TYPE=${1:-Release}
 BUILD_SHARED=${2:-OFF}
-MPIFLAVOR=${3:-intelmpi}
-BUILD_LIB=${4:-OFF}
+MPIFLAVOR=${3:-openmpi}
+BUILD_LIB=${4:-ON}
 BUILD_TESTS=${5:-OFF}
 
 BUILD_DIR=build
