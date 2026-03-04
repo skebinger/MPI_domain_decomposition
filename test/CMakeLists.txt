@@ -1,4 +1,23 @@
+# ==============*CMAKE*============= #
+#   _ __ ___  _ __ (_) __| | ___| |  #
+#  | '_ ` _ \| '_ \| |/ _` |/ __| |  #
+#  | | | | | | |_) | | (_| | (__| |  #
+#  |_| |_| |_| .__/|_|\__,_|\___|_|  #
+#            |_|                     #
+# ================================== #
+# ================================================================= #
+#  Copyright (C) 2025, Simon Kebinger
+# 
+#  This file is part of the MPI decomposition library "mpidcl" for 
+#  structured multidmensional domains.
+# 
+#  This library is distributed under the BSD 3-Clause License.
+# ================================================================= #
+
 cmake_minimum_required(VERSION 3.16)
+
+set(PFUNIT_version_name "4.12" CACHE STRING "PFUnit version (for bookkeeping)")
+set(PFUNIT_location "$ENV{HOME}/opt" CACHE STRING "PFUnit installation base directory")
 
 # Use the same MPI flavor option as parent or define again
 set(MPIFLAVOR "openmpi" CACHE STRING "MPI flavor: intelmpi or openmpi")
@@ -17,16 +36,16 @@ endif()
 project(mpidcl_tests LANGUAGES Fortran C)
 
 # get the funitproc executable with full path
-set(FUNITPROC_EXECUTABLE "$ENV{HOME}/pfunit-${MPIFLAVOR}/PFUNIT-4.12/bin/funitproc")
+set(FUNITPROC_EXECUTABLE "${PFUNIT_location}/pfunit-${MPIFLAVOR}/PFUNIT-${PFUNIT_version_name}/bin/funitproc")
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/mod_tests")
 
 # Find the MPI and PFUNIT packages
 find_package(MPI REQUIRED Fortran C)
-list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/pfunit-${MPIFLAVOR}/PFUNIT-4.12/cmake")
+list(APPEND CMAKE_PREFIX_PATH "${PFUNIT_location}/pfunit-${MPIFLAVOR}/PFUNIT-${PFUNIT_version_name}/cmake")
 find_package(PFUNIT REQUIRED)
 
-set(PFUNIT_INCLUDE_DIR "$ENV{HOME}/pfunit-${MPIFLAVOR}/PFUNIT-4.12/include")
+set(PFUNIT_INCLUDE_DIR "${PFUNIT_location}/pfunit-${MPIFLAVOR}/PFUNIT-${PFUNIT_version_name}/include")
 set(PFUNIT_DRIVER_F90 "${PFUNIT_INCLUDE_DIR}/driver.F90")
 
 # Directory where your .pf files live
@@ -69,19 +88,19 @@ add_dependencies(pfunit_tests generate_pf_files)
 
 target_include_directories(pfunit_tests PRIVATE
     ${CMAKE_Fortran_MODULE_DIRECTORY}
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/FARGPARSE-1.9/include"
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/include"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/FARGPARSE-1.9/include"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/include"
     ${PFUNIT_INCLUDE_DIR}
     "${CMAKE_SOURCE_DIR}/../build/mod"
 )
 
 target_link_libraries(pfunit_tests PRIVATE
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/PFUNIT-4.12/lib/libpfunit.a"
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/PFUNIT-4.12/lib/libfunit.a"
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/FARGPARSE-1.9/lib/libfargparse.a"
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/lib/libgftl-shared-v2-as-default.a"
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/lib/libgftl-shared-v2.a"
-    "$ENV{HOME}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/lib/libgftl-shared-v1.a"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/PFUNIT-${PFUNIT_version_name}/lib/libpfunit.a"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/PFUNIT-${PFUNIT_version_name}/lib/libfunit.a"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/FARGPARSE-1.9/lib/libfargparse.a"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/lib/libgftl-shared-v2-as-default.a"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/lib/libgftl-shared-v2.a"
+    "${PFUNIT_location}/pfunit-${MPIFLAVOR}/GFTL_SHARED-1.10/lib/libgftl-shared-v1.a"
     MPI::MPI_Fortran MPI::MPI_C mpidcl
     OpenMP::OpenMP_Fortran
 )

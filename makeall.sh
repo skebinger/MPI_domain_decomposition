@@ -17,25 +17,87 @@
 # ================================================================= #
 
 # Usage:
-# ./makeall.sh [BuildType] [SharedLib ON/OFF] [MPIFLAVOR] [BuildLib ON/OFF] [BuildTest ON/OFF]
-# BuildType : Test, Debug, Release (=intended build type for use)
-# SharedLib : decides if a static or shared library is created on output
-# So far: Testing is restricted to a static library and compilation might fail for shared
-# MPIFLAVOUR : intelmpi, openmpi or a mpi implementation of your choice given you change and
-# ammend the cmake extensions in ./config
-# BuildLib : On current pass build the lib or not
-# BuildTest : On current pass build the testing environment; requires library to be build previously
+# ./makeall.sh [options]
+#
+# Options (named arguments):
+#   --type <BuildType>         : Build type (Test, Debug, Release). Default: Release
+#   --shared <ON|OFF>          : Build shared library (ON) or static library (OFF). Default: OFF
+#   --mpi <MPIFLAVOR>          : MPI implementation to use (intelmpi, openmpi). Default: openmpi
+#   --build-lib <ON|OFF>       : Whether to build the library. Default: ON
+#   --build-tests <ON|OFF>     : Whether to build the test environment (requires library built). Default: OFF
+#   --install <InstallPath>    : Custom installation directory for library and module files. Default: ./install
+#   --help                     : Show this help message and exit
+#
 # -> envoke tests (if compiled) in ./build_test with command <ctest>
-# Example:
-# ./makeall.sh Debug OFF openmpi ON OFF -> to compile without tests but debugging flags with intelmpi
-# ./makeall.sh Test OFF intelmpi ON ON -> to compile with testing (requires pFUnit) with intelmpi
-# ./makeall.sh Release OFF openmpi ON OFF -> to compile without testing with openmpi
+#
+# Examples:
+#   ./makeall.sh --type Debug
+#   ./makeall.sh --mpi intelmpi --shared ON
+#   ./makeall.sh --install $(HOME)/lib/mpidcl
+#   ./makeall.sh --mpi intelmpi --install $(HOME)/lib/mpidcl
+# DEFAULT: the script executes as:
+# ./makeall.sh --type Release --shared OFF --mpi openmpi --build-lib ON --build-tests OFF --install $(pwd)/install
 
-BUILD_TYPE=${1:-Release}
-BUILD_SHARED=${2:-OFF}
-MPIFLAVOR=${3:-openmpi}
-BUILD_LIB=${4:-ON}
-BUILD_TESTS=${5:-OFF}
+# ===============================
+# Default values
+# ===============================
+
+BUILD_TYPE="Release"
+BUILD_SHARED="OFF"
+MPIFLAVOR="openmpi"
+BUILD_LIB="ON"
+BUILD_TESTS="OFF"
+INSTALL_PREFIX="$(pwd)/install"
+
+# ===============================
+# Argument parsing
+# ===============================
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --type)
+            BUILD_TYPE="$2"
+            shift 2
+            ;;
+        --shared)
+            BUILD_SHARED="$2"
+            shift 2
+            ;;
+        --mpi)
+            MPIFLAVOR="$2"
+            shift 2
+            ;;
+        --build-lib)
+            BUILD_LIB="$2"
+            shift 2
+            ;;
+        --build-tests)
+            BUILD_TESTS="$2"
+            shift 2
+            ;;
+        --install)
+            INSTALL_PREFIX="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Usage:"
+            echo "./makeall.sh [options]"
+            echo ""
+            echo "Options:"
+            echo "  --type <Release|Debug|Test>"
+            echo "  --shared <ON|OFF>"
+            echo "  --mpi <intelmpi|openmpi>"
+            echo "  --build-lib <ON|OFF>"
+            echo "  --build-tests <ON|OFF>"
+            echo "  --install <path>"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
 BUILD_DIR=build
 TEST_BUILD_DIR=build_test
@@ -46,6 +108,7 @@ if [ "$BUILD_LIB" = "ON" ]; then
     echo "Build Type:        $BUILD_TYPE"
     echo "Shared Library:    $BUILD_SHARED"
     echo "MPI Flavor:        $MPIFLAVOR"
+    echo "Install Prefix:    $INSTALL_PREFIX"
     echo "Build Directory:   $BUILD_DIR"
     echo "========================"
 
@@ -58,9 +121,12 @@ if [ "$BUILD_LIB" = "ON" ]; then
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
         -DBUILD_SHARED_LIBS=$BUILD_SHARED \
         -DMPIFLAVOR=$MPIFLAVOR \
-        #--debug-output
+        -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX
 
     make -j$(nproc)
+
+    echo "=== Installing Library ==="
+    cmake --install .
 
     cd ..
 fi
@@ -78,8 +144,7 @@ if [ "$BUILD_TESTS" = "ON" ]; then
     echo $(pwd)
 
     cmake ../test \
-        -DMPIFLAVOR=$MPIFLAVOR \
-        #--debug-output
+        -DMPIFLAVOR=$MPIFLAVOR
 
     make -j$(nproc)
 
