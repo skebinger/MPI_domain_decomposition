@@ -1,0 +1,34 @@
+name: Update License Year
+
+on:
+  schedule:
+    - cron: '0 0 1 1 *' # Runs every January 1st
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  update_license_year:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set current year
+        id: year
+        run: echo "CURRENT_YEAR=$(date +'%Y')" >> $GITHUB_ENV
+
+      - name: Update license year ranges in files
+        run: |
+          FILES=$(find . -type f \( -name "*.sh" -o -name "*.f90" -o -name "*.cmake" -o -name "*.txt" \))
+          for file in $FILES; do
+            # Detect starting year and update range
+            sed -i -E "s/(Copyright \(C\) ([0-9]{4}))(-[0-9]{4})?/\1-${CURRENT_YEAR}/" "$file"
+          done
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --cached --quiet || \
+            (git commit -m "Update license year range to ${CURRENT_YEAR}" && git push)
