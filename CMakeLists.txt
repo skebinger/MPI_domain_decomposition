@@ -17,7 +17,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # User configurable option to choose MPI flavor
-set(MPIFLAVOR "intelmpi" CACHE STRING "MPI flavor: intelmpi or openmpi")
+set(MPIFLAVOR "openmpi" CACHE STRING "MPI flavor: intelmpi or openmpi")
 
 # Pick Fortran compiler early, before project()
 if(MPIFLAVOR STREQUAL "intelmpi")
@@ -59,3 +59,18 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 # Optional debug/release settings (can also be handled in flavor files)
+
+# =========================
+# Installation rules
+# =========================
+
+include(GNUInstallDirs)
+
+install(TARGETS ${PROJECT_NAME}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}   # static libs (.a)
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}   # shared libs (.so)
+)
+
+# Install Fortran module files (.mod)
+install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
