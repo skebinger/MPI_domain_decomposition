@@ -55,4 +55,3 @@ jobs:
           else
             echo "No changes needed"
           fi
-```
