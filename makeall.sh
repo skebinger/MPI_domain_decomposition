@@ -8,7 +8,7 @@
 #            |_|                     #
 # ================================== #
 # ================================================================= #
-#  Copyright (C) 2025, Simon Kebinger
+#  Copyright (C) 2025-2026, Simon Kebinger
 # 
 #  This file is part of the MPI decomposition library "mpidcl" for 
 #  structured multidmensional domains.

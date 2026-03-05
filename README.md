@@ -1,4 +1,4 @@
-# 📦 MPIDCL — MPI Decomposition Library
+# MPIDCL — MPI Decomposition Library
 
 **MPIDCL** (MPI Decomposition Library) is a lightweight **Fortran** library for structured domain decomposition in **1D, 2D, and 3D** using **MPI**. It’s designed for **CFD simulations** and other stencil-based solvers on structured grids, with built-in ghost cell exchange and consistent subdomain indexing across ranks.
 
@@ -6,21 +6,21 @@ Whether you're new to MPI or developing a scalable parallel solver, `mpidcl` off
 
 ---
 
-## ✨ Features
+## Features
 
-- 🧩 **Block Decomposition**  
+- **Block Decomposition**  
   Static rectangular domain splitting in 1D, 2D, or 3D.
 
-- 🔁 **Ghost Cell Exchange**  
+- **Ghost Cell Exchange**  
   Built-in halo exchange routines for structured grids.
 
-- 📦 **Consistent Indexing**  
+- **Consistent Indexing**  
   Subdomains are assigned globally consistent index bounds.
 
-- 📐 **Modular Design**  
+- **Modular Design**  
   Clean separation between halo packing, buffer management, and communication routines.
 
-- 🚀 **Scalable**  
+- **Scalable**  
   Supports arbitrary Cartesian process layouts using MPI.
 
 ---
@@ -36,10 +36,11 @@ Whether you're new to MPI or developing a scalable parallel solver, `mpidcl` off
 > **Note:**  
 > A setup script `install_pfUnit_MPI.sh` is provided under `./test` to install **pFUnit** using your chosen MPI implementation (currently Intel MPI or OpenMPI).
 > The project uses **FORD** for generating documentation from the provided code. I can be easily installed via pip. For more detailed installation instructions please visit the respective repository page.
+> Currently, only OpenMPI and Intel MPI are incorporated into the build, especially the testing. TO build the library with another MPI implementation, appropriately change the cmake configurations.
 
 ---
 
-## ⚙️ Building the Library
+## Building the Library
 
 To build the library, a helper script `makeall.sh` is provided at the repository root. The library can be compiled as either a **static** or **shared** library.
 
@@ -47,18 +48,18 @@ Compiler flags and MPI settings are managed via dedicated CMake extension files 
 
 > The final library artifact (`libmpidcl`) will be placed under `./build/lib`.
 
-### 🔧 Example
+### Example
 
 To compile a **static** library **without tests**, using **Release** flags and **OpenMPI**:
 
 ```bash
-./makeall.sh Release OFF openmpi ON OFF
+./makeall.sh
 ```
 
 To compile the same **with tests** :
 
 ```bash
-./makeall.sh Release OFF openmpi ON ON
+./makeall.sh --build-tests ON
 ```
 
 The tests are located in the directory `./test` and may be executed, after building with appropriate options, with
