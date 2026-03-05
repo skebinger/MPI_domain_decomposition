@@ -1,12 +1,12 @@
 name: Update License Year
 
 on:
-schedule:
-- cron: "0 0 1 1 *" # January 1st
-workflow_dispatch:
+  schedule:
+    - cron: "0 0 1 1 *" # January 1st
+  workflow_dispatch:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
   update_license_year:
