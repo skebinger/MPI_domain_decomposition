@@ -91,12 +91,6 @@ fi
 # Build Intel MPI version
 # -------------------------
 if [[ "$choice" == "2" || "$choice" == "3" ]]; then
-    echo "Loading Intel MPI environment..."
-    source /opt/intel/oneapi/setvars.sh || {
-        echo "Failed to source Intel setvars.sh. Check Intel MPI installation."
-        exit 1
-    }
-
     build_pfunit "mpiifx" "mpiicx" "$INSTALL_INTELMPI" "Intel MPI"
 fi
 
